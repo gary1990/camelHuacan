@@ -1,0 +1,2 @@
+create index INDEX_SN on producttestinfo(sn);
+create index INDEX_TAG on producttestinfo(TAG);

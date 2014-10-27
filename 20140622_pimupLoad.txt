@@ -1,0 +1,8 @@
+1.login Controller
+	pimupload file not decompress in uploadPimFile because of blank
+	remove blank in zip file 
+	remove blank in compressed folder
+2.pack Controller
+	detail_pim method, productor encoding
+3.van_pim_detail View
+	pim image path remove blank in folder name
