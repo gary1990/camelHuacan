@@ -731,7 +731,7 @@ class Login extends CW_Controller
 	{
 		if (PHP_OS == 'WINNT')
 		{
-			$uploadRoot = "D:\\camel\\camel\\assets\\uploadedSource\\pim";
+			$uploadRoot = "F:\\GaryChen\\wwwRoot\\camelHuaCan\\assets\\uploadedSource\\pim";
 			$slash = "\\";
 		}
 		else if (PHP_OS == 'Darwin')
@@ -858,7 +858,6 @@ class Login extends CW_Controller
 					{
 						$lineContentArray = explode(",", $line);
 						$lineContentArray = $this->_trimQuoterMark($lineContentArray);
-
 						//如果是第一个组,使用此组值来初始化pim_ser_num中的值					
 						if ($firstGroup)
 						{
@@ -1123,46 +1122,60 @@ class Login extends CW_Controller
 			}
 			else
 			{
-				$pimResultSql = "SELECT pm.model,pm.col12,pa.value FROM pim_ser_num pm 
-									JOIN pim_ser_num_group pp 
-									ON pp.pim_ser_num = pm.id
-									JOIN pim_ser_num_group_data pa 
-									ON pa.pim_ser_num_group = pp.id
-									WHERE pm.ser_num = '".$sn."'";
+				$pimResultSql = "SELECT a.test_time, max( a.value ) AS maxval, max( a.value ) > substring( a.col12, 12 ) AS result
+								FROM (
+									SELECT pm.model, pm.col12, pp.test_time, pa.value
+									FROM pim_ser_num pm
+									JOIN pim_ser_num_group pp ON pp.pim_ser_num = pm.id
+									JOIN pim_ser_num_group_data pa ON pa.pim_ser_num_group = pp.id
+									WHERE pm.ser_num = '".$sn."'
+								)a
+								GROUP BY a.test_time
+								ORDER BY a.test_time DESC";
 				$pimResult = $this->db->query($pimResultSql);
 				$pimResultArray = $pimResult->result_array();
-				$limtLineResult = $pimResultArray[0]['col12'];
-				$productType = 
-				$limitLine = substr($limtLineResult, 11);
-				$loopNum = 0;
-				//判断pim是否合格
-				foreach($pimResultArray as $value)
-				{
-					if($value['value'] < $limitLine)
-					{
-						$loopNum++;
-					}
-					else
-					{
-						//取得vna当前tag位，如果有，取得vna当前tag1为1的tag位。如果无，标志位取0
-						$vnatagObj = $this->db->query("SELECT tag FROM producttestinfo po WHERE tag1 = '1' AND po.sn = '".$sn."'");
-						if($vnatagObj->num_rows() == 0)
-						{
-							$packTag = '0';
-						}
-						else
-						{
-							$packTag = $vnatagObj->first_row()->tag;
-						}
-						$this->db->query("INSERT INTO packingresult (packingtime,boxsn,productsn,ordernum,packer,result,tag) 
-										VALUES ('".$packingTime."','','".$sn."','".$ordernum."','".$packer."','FAIL','".$packTag."')");
-						print("<result><info>pimresultfail</info></result>");
-						return;					
+				//pim结果, 默认不合格
+				$pim_result = false;
+				//pim count == 1,只有一组
+				if(count($pimResultArray) == 1){
+					//result == 0, Pass
+					if($pimResultArray[0]['result'] == 0){
+						$pim_result = true;
 					}
 				}
-				//pim合格，检查vna测试是否存在
-				if($loopNum == count($pimResultArray))
-				{
+				else
+				{//pim count > 1
+					$pimPassCount = 0;
+					$pimPrevResult;
+					foreach ($pimResultArray as $key => $value) {
+						$result = $value['result'];// 0 is pass, 1 is fail
+						if($key == 0){//$key == 0, is the first group
+							if($result == 0){
+								$pimPassCount = $pimPassCount + 1;
+							}
+							$pimPrevResult = $result;
+						}
+						else//$key != 0, not first group
+						{
+							if($result == 0){//current group is pass
+								if($pimPrevResult == 0){
+									$pimPassCount = $pimPassCount + 1;
+								}else{
+									$pimPassCount = 1;
+									$pimPrevResult = $result;
+								}
+							}else{//current group is fail, clean pass count and set current result to prev result 
+								$pimPassCount = 0;
+								$pimPrevResult = $result;
+							}
+						}
+						if($pimPassCount == 3){//3 continuous pass groups,set pim result true and stop foreach
+							$pim_result = true;
+							break;
+						}
+					}
+				}
+				if($pim_result){//pim合格，检查vna测试是否存在
 					$vnaResultSql = "SELECT po.result,po.tag FROM producttestinfo po WHERE po.sn = '".$sn."' AND po.tag1 = '1'";
 					$vnaResultObject = $this->db->query($vnaResultSql);
 					$vnaResultArray = $vnaResultObject->result_array();
@@ -1193,6 +1206,20 @@ class Login extends CW_Controller
 							print("<result><info>vnaresultfail</info></result>");
 						}
 					}
+				}else{//pim fail, get vna record tag
+					//取得vna当前tag位，如果有，取得vna当前tag1为1的tag位。如果无，标志位取0
+					$vnatagObj = $this->db->query("SELECT tag FROM producttestinfo po WHERE tag1 = '1' AND po.sn = '".$sn."'");
+					if($vnatagObj->num_rows() == 0)
+					{
+						$packTag = '0';
+					}
+					else
+					{
+						$packTag = $vnatagObj->first_row()->tag;
+					}
+					$this->db->query("INSERT INTO packingresult (packingtime,boxsn,productsn,ordernum,packer,result,tag) 
+									VALUES ('".$packingTime."','','".$sn."','".$ordernum."','".$packer."','FAIL','".$packTag."')");
+					print("<result><info>pimresultfail</info></result>");
 				}
 			}
 		}

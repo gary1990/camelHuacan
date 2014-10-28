@@ -420,67 +420,67 @@ class Packing extends CW_Controller
 		if(count($pimbasicInfoArray) != 0 && $pimbasicInfoArray[0]["testtime"] != "")
 		{
 			$pimbasicInfo = $pimbasicInfoArray[0];
-			//取得极限值
-			$limitLine = substr($pimbasicInfo["col12"], strrpos($pimbasicInfo["col12"], ":")+1);
-			//取得所有值
-			$pimdataObject = $this->db->query("SELECT pp.test_time,pa.value
-									  FROM pim_label pl
-									  JOIN pim_ser_num pm ON pm.pim_label = pl.id
-									  JOIN pim_ser_num_group pp ON pp.pim_ser_num = pm.id
-									  JOIN pim_ser_num_group_data pa ON pa.pim_ser_num_group = pp.id
-									  WHERE pm.ser_num = '".$productsn."'");
-			$pimdataArray = $pimdataObject->result_array();
-			//对数据处理，将同一测试时间的数据放到一组
-			$pim_testtime = array();
-			$pimdataFormart = array();
-			foreach($pimdataArray as $value)
-			{
-				if(!in_array($value["test_time"], $pim_testtime))
-				{
-					$arr = array($value["value"]);
-					$pimdataFormart[$value["test_time"]] = $arr;
-					array_push($pim_testtime,$value["test_time"]);
-				}
-				else
-				{
-					array_push($pimdataFormart[$value["test_time"]],$value["value"]);
+			$pimResultSql = "SELECT a.test_time, max( a.value ) AS maxval, max( a.value ) > substring( a.col12, 12 ) AS result
+								FROM (
+									SELECT pm.model, pm.col12, pp.test_time, pa.value
+									FROM pim_ser_num pm
+									JOIN pim_ser_num_group pp ON pp.pim_ser_num = pm.id
+									JOIN pim_ser_num_group_data pa ON pa.pim_ser_num_group = pp.id
+									WHERE pm.ser_num = '".$productsn."'
+								)a
+								GROUP BY a.test_time
+								ORDER BY a.test_time DESC";
+			$pimResult = $this->db->query($pimResultSql);
+			$pimResultArray = $pimResult->result_array();
+			//pim结果, 默认不合格
+			$pim_result = false;
+			//pim count == 1,只有一组
+			if(count($pimResultArray) == 1){
+				//result == 0, Pass
+				if($pimResultArray[0]['result'] == 0){
+					$pim_result = true;
 				}
 			}
-			//判断有几组数据大于极限值
-			$i = 0;
-			foreach($pimdataFormart as $value)
-			{
-				foreach($value as $val)
-				{
-					if($val >= $limitLine)
+			else
+			{//pim count > 1
+				$pimPassCount = 0;
+				$pimPrevResult;
+				foreach ($pimResultArray as $key => $value) {
+					$result = $value['result'];// 0 is pass, 1 is fail
+					if($key == 0){//$key == 0, is the first group
+						if($result == 0){
+							$pimPassCount = $pimPassCount + 1;
+						}
+						$pimPrevResult = $result;
+					}
+					else//$key != 0, not first group
 					{
-						$i++;
+						if($result == 0){//current group is pass
+							if($pimPrevResult == 0){
+								$pimPassCount = $pimPassCount + 1;
+							}else{
+								$pimPassCount = 1;
+								$pimPrevResult = $result;
+							}
+						}else{//current group is fail, clean pass count and set current result to prev result 
+							$pimPassCount = 0;
+							$pimPrevResult = $result;
+						}
+					}
+					if($pimPassCount == 3){//3 continuous pass groups,set pim result true and stop foreach
+						$pim_result = true;
 						break;
 					}
 				}
 			}
 			//判断是否合格，0代表不合格，1代表合格
-			if(count($pimdataFormart) == 1)
+			if($pim_result)
 			{
-				if($i > 0)
-				{
-					$pimtestResult = "不合格";
-				}
-				else
-				{
-					$pimtestResult = "合格";
-				}
+				$pimtestResult = "合格";
 			}
 			else
 			{
-				if($i >= 2)
-				{
-					$pimtestResult = "不合格";
-				}
-				else
-				{
-					$pimtestResult = "合格";
-				}
+				$pimtestResult = "不合格";
 			}
 			//取得各组的最大值
 			$pimmaxdataObject = $this->db->query("SELECT pp.test_time,pp.upload_date,MAX(pa.value) AS value FROM pim_ser_num pm
@@ -588,67 +588,67 @@ class Packing extends CW_Controller
 		if(count($pimbasicInfoArray) != 0)
 		{
 			$pimbasicInfo = $pimbasicInfoArray[0];
-			//取得极限值
-			$limitLine = substr($pimbasicInfo["col12"], strrpos($pimbasicInfo["col12"], ":")+1);
-			//取得所有值
-			$pimdataObject = $this->db->query("SELECT pp.test_time,pa.value
-									  FROM pim_label pl
-									  JOIN pim_ser_num pm ON pm.pim_label = pl.id
-									  JOIN pim_ser_num_group pp ON pp.pim_ser_num = pm.id
-									  JOIN pim_ser_num_group_data pa ON pa.pim_ser_num_group = pp.id
-									  WHERE pm.ser_num = '".$productsn."'");
-			$pimdataArray = $pimdataObject->result_array();
-			//对数据处理，将同一测试时间的数据放到一组
-			$pim_testtime = array();
-			$pimdataFormart = array();
-			foreach($pimdataArray as $value)
-			{
-				if(!in_array($value["test_time"], $pim_testtime))
-				{
-					$arr = array($value["value"]);
-					$pimdataFormart[$value["test_time"]] = $arr;
-					array_push($pim_testtime,$value["test_time"]);
-				}
-				else
-				{
-					array_push($pimdataFormart[$value["test_time"]],$value["value"]);
+			$pimResultSql = "SELECT a.test_time, max( a.value ) AS maxval, max( a.value ) > substring( a.col12, 12 ) AS result
+								FROM (
+									SELECT pm.model, pm.col12, pp.test_time, pa.value
+									FROM pim_ser_num pm
+									JOIN pim_ser_num_group pp ON pp.pim_ser_num = pm.id
+									JOIN pim_ser_num_group_data pa ON pa.pim_ser_num_group = pp.id
+									WHERE pm.ser_num = '".$productsn."'
+								)a
+								GROUP BY a.test_time
+								ORDER BY a.test_time DESC";
+			$pimResult = $this->db->query($pimResultSql);
+			$pimResultArray = $pimResult->result_array();
+			//pim结果, 默认不合格
+			$pim_result = false;
+			//pim count == 1,只有一组
+			if(count($pimResultArray) == 1){
+				//result == 0, Pass
+				if($pimResultArray[0]['result'] == 0){
+					$pim_result = true;
 				}
 			}
-			//判断有几组数据大于极限值
-			$i = 0;
-			foreach($pimdataFormart as $value)
-			{
-				foreach($value as $val)
-				{
-					if($val >= $limitLine)
+			else
+			{//pim count > 1
+				$pimPassCount = 0;
+				$pimPrevResult;
+				foreach ($pimResultArray as $key => $value) {
+					$result = $value['result'];// 0 is pass, 1 is fail
+					if($key == 0){//$key == 0, is the first group
+						if($result == 0){
+							$pimPassCount = $pimPassCount + 1;
+						}
+						$pimPrevResult = $result;
+					}
+					else//$key != 0, not first group
 					{
-						$i++;
+						if($result == 0){//current group is pass
+							if($pimPrevResult == 0){
+								$pimPassCount = $pimPassCount + 1;
+							}else{
+								$pimPassCount = 1;
+								$pimPrevResult = $result;
+							}
+						}else{//current group is fail, clean pass count and set current result to prev result 
+							$pimPassCount = 0;
+							$pimPrevResult = $result;
+						}
+					}
+					if($pimPassCount == 3){//3 continuous pass groups,set pim result true and stop foreach
+						$pim_result = true;
 						break;
 					}
 				}
 			}
 			//判断是否合格，0代表不合格，1代表合格
-			if(count($pimdataFormart) == 1)
+			if($pim_result)
 			{
-				if($i > 0)
-				{
-					$pimtestResult = "不合格";
-				}
-				else
-				{
-					$pimtestResult = "合格";
-				}
+				$pimtestResult = "合格";
 			}
 			else
 			{
-				if($i >= 2)
-				{
-					$pimtestResult = "不合格";
-				}
-				else
-				{
-					$pimtestResult = "合格";
-				}
+				$pimtestResult = "不合格";
 			}
 			//取得各组的最大值
 			$pimmaxdataObject = $this->db->query("SELECT pp.test_time,pp.upload_date,MAX(pa.value) AS value FROM pim_ser_num pm
