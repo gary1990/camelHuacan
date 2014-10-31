@@ -1122,59 +1122,7 @@ class Login extends CW_Controller
 			}
 			else
 			{
-				$pimResultSql = "SELECT a.test_time, max( a.value ) AS maxval, max( a.value ) > substring( a.col12, 12 ) AS result
-								FROM (
-									SELECT pm.model, pm.col12, pp.test_time, pa.value
-									FROM pim_ser_num pm
-									JOIN pim_ser_num_group pp ON pp.pim_ser_num = pm.id
-									JOIN pim_ser_num_group_data pa ON pa.pim_ser_num_group = pp.id
-									WHERE pm.ser_num = '".$sn."'
-								)a
-								GROUP BY a.test_time
-								ORDER BY a.test_time DESC";
-				$pimResult = $this->db->query($pimResultSql);
-				$pimResultArray = $pimResult->result_array();
-				//pim结果, 默认不合格
-				$pim_result = false;
-				//pim count == 1,只有一组
-				if(count($pimResultArray) == 1){
-					//result == 0, Pass
-					if($pimResultArray[0]['result'] == 0){
-						$pim_result = true;
-					}
-				}
-				else
-				{//pim count > 1
-					$pimPassCount = 0;
-					$pimPrevResult;
-					foreach ($pimResultArray as $key => $value) {
-						$result = $value['result'];// 0 is pass, 1 is fail
-						if($key == 0){//$key == 0, is the first group
-							if($result == 0){
-								$pimPassCount = $pimPassCount + 1;
-							}
-							$pimPrevResult = $result;
-						}
-						else//$key != 0, not first group
-						{
-							if($result == 0){//current group is pass
-								if($pimPrevResult == 0){
-									$pimPassCount = $pimPassCount + 1;
-								}else{
-									$pimPassCount = 1;
-									$pimPrevResult = $result;
-								}
-							}else{//current group is fail, clean pass count and set current result to prev result 
-								$pimPassCount = 0;
-								$pimPrevResult = $result;
-							}
-						}
-						if($pimPassCount == 3){//3 continuous pass groups,set pim result true and stop foreach
-							$pim_result = true;
-							break;
-						}
-					}
-				}
+				$pim_result = $this->checkPimResult($sn);
 				if($pim_result){//pim合格，检查vna测试是否存在
 					$vnaResultSql = "SELECT po.result,po.tag FROM producttestinfo po WHERE po.sn = '".$sn."' AND po.tag1 = '1'";
 					$vnaResultObject = $this->db->query($vnaResultSql);
@@ -1340,6 +1288,72 @@ class Login extends CW_Controller
 		$uploadResult = xml_add_child($dom, 'existResult');
 		xml_add_child($uploadResult, 'result', $result);
 		xml_print($dom);
+	}
+	//cheack pim result
+	protected function checkPimResult($pim_ser_num)
+	{
+		$perPimResultSql = "SELECT a.test_time, max( a.value ) AS maxval, max( a.value ) > substring( a.col12, 12 ) AS result
+								FROM (
+									SELECT pm.model, pm.col12, pp.test_time, pa.value
+									FROM pim_ser_num pm
+									JOIN pim_ser_num_group pp ON pp.pim_ser_num = pm.id
+									JOIN pim_ser_num_group_data pa ON pa.pim_ser_num_group = pp.id
+									WHERE pm.ser_num = '".$pim_ser_num."'
+								)a
+								GROUP BY a.test_time
+								ORDER BY a.test_time DESC";
+		$perPimResult = $this->db->query($perPimResultSql);
+		$perPimResultArray = $perPimResult->result_array();
+		//pim结果, 默认不合格
+		$pim_result = false;
+		//pim count == 1,只有一组
+		if(count($perPimResultArray) == 1){
+			//result == 0, Pass
+			if($perPimResultArray[0]['result'] == 0){
+				$pim_result = true;
+			}
+		}
+		else//pim count > 1
+		{
+			//check if first test result is pass, 0 is pass, 1 is fail
+			if($perPimResultArray[count($perPimResultArray)-1]['result'] != 0)
+			{
+				$pimPassCount = 0;
+				$pimPrevResult;
+				foreach ($perPimResultArray as $k1 => $v1) {
+					$result = $v1['result'];// 0 is pass, 1 is fail
+					if($k1 == 0){//$key == 0, is the first group
+						if($result == 0){
+							$pimPassCount = $pimPassCount + 1;
+						}
+						$pimPrevResult = $result;
+					}
+					else//$k1 != 0, not first group
+					{
+						if($result == 0){//current group is pass
+							if($pimPrevResult == 0){
+								$pimPassCount = $pimPassCount + 1;
+							}else{
+								$pimPassCount = 1;
+								$pimPrevResult = $result;
+							}
+						}else{//current group is fail, clean pass count and set current result to prev result 
+							$pimPassCount = 0;
+							$pimPrevResult = $result;
+						}
+					}
+					if($pimPassCount == 3){//3 continuous pass groups,set pim result true and stop foreach
+						$pim_result = true;
+						break;
+					}
+				}
+			}
+			else//first time test result is pass
+			{
+				$pim_result = true;
+			}
+		}
+		return $pim_result;
 	}
 }
 
