@@ -29,7 +29,7 @@
 		width: 330px;
 	}
 	.search{
-		width: 200px
+		width: 800px
 	}
 	.bt {
 		width: 70px
@@ -155,6 +155,10 @@
 			$("#locForm").attr('action', "{site_url()}/vna_pim/export_vna");
 			$("#locForm").submit();
 		});
+		$(".export_vna_excel").click(function(){
+            $("#locForm").attr('action', "{site_url()}/vna_pim/export_vna_excel");
+            $("#locForm").submit();
+        });
 	});
 	jQuery(function($)
 	{
@@ -252,6 +256,7 @@
 				<div class="subCondition search">
 					<input class="bt" id="search" type="submit" value="查询"/>
 					<input class="export_vna" type="button" value="导出报告"/>
+					<input class="export_vna_excel" type="button" value="导出Excel"/>
 					<input name="current_item" class="current_item" value="{if $title=='VNA测试记录'}VNA{else}PIM{/if}" type="hidden"/>
 					<input name="current_page" class="current_page" value="{$smarty.post.current_page|default:'1'}" type="hidden"/>
 				</div>

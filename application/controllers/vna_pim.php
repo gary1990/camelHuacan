@@ -9,6 +9,7 @@ class Vna_pim extends CW_Controller
 		$this->_init();
 		$this->load->library("Pagefenye");
 		$this->load->library("zip");
+        $this->load->library("PHPExcel");
 	}
 
 	private function _init()
@@ -582,353 +583,534 @@ class Vna_pim extends CW_Controller
 		$this->smarty->display("vna_pim.tpl");
 	}
 
-	public function export_vna()
+	public function export_vna_excel()
 	{
 		set_time_limit(0);
 		
 		//获得选中产品测试项的id,name
-		$testItemSql = "SELECT a.id,a.name FROM testitem a 
-						JOIN status b ON a.status = b.id
-						AND b.statusname = 'active'";
-		$testitemObject = $this->db->query($testItemSql);
-		$testitemArray = $testitemObject->result_array();
-		
-		//根据当前用户填选状况查到满足情况的SN
-		$timeFrom1 = $this->input->post("timeFrom1");
-		if($timeFrom1 == "")
-		{
-			$timeFrom1 = date("Y-m-d");
-		}
-		$timeFrom2 = $this->input->post("timeFrom2");
-		if($timeFrom2 == "")
-		{
-			$timeFrom2 = "00";
-		}
-		$timeFrom3 = $this->input->post("timeFrom3");
-		if($timeFrom3 == "")
-		{
-			$timeFrom3 = "00";
-		}
-		$timeTo1 = $this->input->post("timeTo1");
-		if($timeTo1 == "")
-		{
-			$timeTo1 = date("Y-m-d");
-		}
-		$timeTo2 = $this->input->post("timeTo2");
-		if($timeTo2 == "")
-		{
-			$timeTo2 = "23";
-		}
-		$timeTo3 = $this->input->post("timeTo3");
-		if($timeTo3 == "")
-		{
-			$timeTo3 = "59";
-		}
-		$timeFrom = $timeFrom1." ".$timeFrom2.":".$timeFrom3;
-		$timeTo = $timeTo1." ".$timeTo2.":".$timeTo3;
-		
-		$producttype = $this->input->post("producttype");
-
-		$timeConditionSql = " AND (a.testTime >= '".$timeFrom."' AND a.testTime <= '".$timeTo."')";
-		if($timeFrom != "1900-01-01 00:00" || $timeTo != "2999-01-01 00:00")
-		{
-			$timeConditionSql = " AND a.testTime >= '".$timeFrom."' AND a.testTime <= '".$timeTo."'";
-		}
-
-		$producttypeSql = "";
-
-		if($producttype != null)
-		{
-			$producttypeSql = " AND b.id = '".$producttype."'";
-		}
-		
-		$vnaTotalSnSql = "SELECT a.id,a.sn AS productsn,a.result,b.name AS producttypename,a.tag
-						  FROM producttestinfo a
-						  JOIN producttype b ON a.productType = b.id
-						   ".$timeConditionSql.$producttypeSql."
-						  ORDER BY a.testTime DESC
-						  ";
-		//echo $vnaTotalSnSql;
-		$packingTotalSnObject = $this->db->query($vnaTotalSnSql);
-		$packingTotalSnArray= $packingTotalSnObject->result_array();
-//$packingTotalSnArray = array();
-		/*
-		$packingTotalSnSql = "SELECT DISTINCT pt.id,pt.productsn,pt.boxsn,pt.result,pt.tag
-		                          FROM packingresult pt 
-		                          JOIN tester tr ON pt.packer=tr.employeeid 
-								  LEFT JOIN producttestinfo po ON pt.productsn = po.sn
-								  LEFT JOIN producttype pe ON po.productType = pe.id
-							 	  ".$timeConditionSql.$packBoxSql.$producttypeSql.$productSnSql.$orderNumSql.$packerSql.$testResultSql." 
-							      ORDER BY pt.packingtime DESC";
-		 * 
-		 */
-		//$packingTotalSnObject = $this->db->query($packingTotalSnSql);
-		//$packingTotalSnArray= $packingTotalSnObject->result_array();
-		
-		//遍历得到的序列号数组
-		if(count($packingTotalSnArray) == 0)
-		{
-			$this->_returnUploadFailed("查询数据为空");
-			return;
-		}
-		else
-		{
-			date_default_timezone_set('Asia/Shanghai');
-			$dateStamp = date("YmdHis");
-			$dateInReport = date("Y年m月d日");
-			
-			if(PHP_OS == 'WINNT')
-			{
-				$slash = "\\";
-				$downloadRoot = getcwd().$slash."assets".$slash."downloadedSource";
-			}
-			else
-			{
-				$this->_returnUploadFailed("错误的服务器操作系统");
-				return;
-			}
-			
-			//创建文件下载的根目录downloadedSource
-			if(file_exists($downloadRoot) && is_dir($downloadRoot))
-			{
-				//do nothing
-			}
-			else
-			{
-				if(mkdir($downloadRoot))
-				{
-				}
-				else
-				{
-					$this->_returnUploadFailed("文件下载目录创建失败");
-					return;
-				}
-			}
-			//创建当前下载的文件夹
-			$currdownloadRoot = $downloadRoot.$slash.$dateStamp;
-			if(file_exists($currdownloadRoot) && is_dir($currdownloadRoot))
-			{
-				//do noting
-			}
-			else
-			{
-				if(mkdir($currdownloadRoot))
-				{
-					//拷贝公司logo
-					$logoRoot = getcwd().$slash."resource".$slash."img".$slash."logo.png";
-					if(file_exists($logoRoot))
-					{
-						copy($logoRoot,$currdownloadRoot.$slash."logo.png");
-					}
-					else
-					{
-						$this->_returnUploadFailed($logoRoot."公司logo不存在");
-						return;
-					}
-				}
-				else
-				{
-					$this->_returnUploadFailed("创建下载根目录时出错");
-					return;
-				}
-			}
-			//获取生产厂家名称
-			$producterRoot = getcwd().$slash."resource".$slash."producter.txt";
-			
-			if(file_exists($producterRoot))
-			{
-				$producterName = file_get_contents($producterRoot);
-			}
-			else
-			{
-				$this->_returnUploadFailed($producterRoot."未找到");
-				return;
-			}
-			
-			//创建html文件，先写index.html
-			$indexHandle = fopen($currdownloadRoot.$slash."index.html", "a");
-			fwrite($indexHandle, '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-								  <html xmlns="http://www.w3.org/1999/xhtml">
-									<head>
-										<meta http-equiv="content-type" content="text/html;charset=utf-8">
-										<style type="text/css">
-											body{border:0px;margin:0px}
-											a{text-decoration:none;}
-											.container{width:1024px;margin:0px auto;border:1px solid black;padding:15px;}
-											img{width:60px;height:30px;}
-											table{border-collapse:collapse;}
-											table, td, th{border:1px solid black;}
-										</style>
-									</head>
-										<body>
-											<div class="container">
-												<div class="top">
-													<div style="float:left;width:45%;"><img src="./logo.png"/></div>
-													<div style="font-weight:bold;font-size:28px;text-align:left">质量报告</div>
-												</div>
-												<div style="margin-top:30px;margin-bottom:10px;">
-													<div style="text-align:left;padding-left:70%;">
-														<span>生产厂家：'.iconv("gbk", "utf-8", $producterName).'</span>
-													</div>
-													<div style="text-align:left;padding-left:70%;">
-														<span>报告日期：'.$dateInReport.'</span>
-													</div>
-												</div>'
-												);
-			fwrite($indexHandle,'<div class="content" style="padding-left:10px;padding-right:10px;font-size:13px;">
-								');
-			fwrite($indexHandle, '<table style="width:100%;"><tr><th>序号</th><th>产品型号</th><th>产品序列号</th><th>检测结果</th>');
-			//index.html中写入表头<th>部分的测试项--用户所选
-			if(count($testitemArray) == 0)
-			{
-				//do noting
-			}
-			else
-			{
-				//循环写入vna测试项--用户所选
-				foreach($testitemArray as $value)
-				{
-					fwrite($indexHandle, '<th>'.$value['name'].'</th>');
-				}
-			}
-			fwrite($indexHandle, "</tr>");
-			//循环得到的序列号数组sn数组
-			foreach($packingTotalSnArray as $key=>$value)
-			{
-				fwrite($indexHandle, '<tr><td>'.($key+1).'</td>');
-				//取得产品序列号
-				$producttestinfoId = $value['id'];
-				$sn = $value['productsn'];
-				//取得测试结果
-				$result = $value['result'];
-				//取得标志位
-				$packTag = $value['tag'];
-				//取得产品类型
-				$producttype = $value['producttypename'];
-				/*
-				//取得产品类型
-				$producttypeObject = $this->db->query("SELECT pe.name FROM producttestinfo po 
-								  					   JOIN producttype pe ON po.productType = pe.id
-								                       AND po.sn = '".$sn."'
-								                       AND po.tag = '".$packTag."'");
-
-				$producttypeArray = $producttypeObject->result_array();
-				if(count($producttypeArray) == 0)
-				{
-					$producttype = "";
-				}
-				else
-				{
-					$producttype = $producttypeArray[0]["name"];
-				}
-				*/
-				//index.html中写入产品类型，装箱号，序列号
-				fwrite($indexHandle, '<td>'.$producttype.'</td><td>'.$sn.'</td>');
-				//index.html中写入检测结果
-				if($result == "1")
-				{
-					fwrite($indexHandle, '<td><span style="color:green;"><b>合格</b></span></td>');
-				}
-				else if($result == "0")
-				{
-					fwrite($indexHandle, '<td style="color:red"><b>不合格</b></td>');
-				}
-				
-				
-				//写入各vna测试项最大值--用户所选
-				if(count($testitemArray) == 0)
-				{
-					//do noting
-				}
-				else
-				{
-					//从产品测试方案表中取得当前产品--实际测试项
-					$actualTestItemObject = $this->db->query("SELECT pn.testitem FROM test_configuration pn 
-									  						  JOIN producttestinfo po ON pn.producttype = po.productType
-									  						  AND po.id = '".$producttestinfoId."'"
-									  						  );
-															  
-					$actualTestItemArray = $actualTestItemObject->result_array();
-					$actualTestItem = array();
-					
-					if(count($actualTestItemArray) != 0)
-					{
-						foreach($actualTestItemArray as $value)
-						{
-							array_push($actualTestItem,$value['testitem']);
-						}
-					}
-					else
-					{
-					}
-					
-					//循环	用户所选的测试项
-					foreach($testitemArray as $value)
-					{
-						$testitemId = $value['id'];
-						
-						//判断当前测试项，是否包含在当前产品实际测试项中
-						if(in_array($testitemId,$actualTestItem))
-						{
-							$maxvalueObject = $this->db->query("SELECT MAX(te.value) AS value FROM testitemmarkvalue te
-							 				  					JOIN testitemresult tt ON te.testItemResult = tt.id
-							 				  					JOIN producttestinfo po ON tt.productTestInfo = po.id
-							 				  					AND po.id = '".$producttestinfoId."'
-							 				  					AND tt.testItem = '".$testitemId."'
-							 				  					
-							 				 					");
-							$maxvalueArray = $maxvalueObject->result_array();
-							
-							if(count($maxvalueArray) == 0)
-							{
-								fwrite($indexHandle, '<td>&nbsp;</td>');
-							}
-							else
-							{
-								$maxvalue = $maxvalueArray[0]['value'];
-								fwrite($indexHandle, '<td>'.$maxvalue.'</td>');
-							}
-						}
-						else
-						{
-							fwrite($indexHandle, '<td>&nbsp;</td>');
-						}
-					}
-				}
-				
-				fwrite($indexHandle, "</tr>");
-			}
-
-			fwrite($indexHandle, "</table>");
-			fwrite($indexHandle, '</div></div></body></html>');
-			fclose($indexHandle);
-			
-			exec('C:\Progra~1\7-Zip\7z.exe a -tzip '.$currdownloadRoot.'.zip '.$currdownloadRoot);
-			$this->delDirAndFile($currdownloadRoot);
-			
-			$fileRoot = $currdownloadRoot.".zip";
-			$fileName = $dateStamp.".zip";
-
-			if(!file_exists($fileRoot))
-			{
-				die("Error:File not found.");
-			}
-			else
-			{
-				header("Pragma: public");
-       			header("Expires: 0");
-        		header("Cache-Control: must-revalidate, post-check=0, pre-check=0");
-        		header("Cache-Control: public");
-        		header("Content-Description: File Transfer");
-        		header("Content-type: application/octet-stream");
-        		header("Content-Disposition: attachment; filename=\"" . $fileName . "\"");
-        		header("Content-Transfer-Encoding: binary");
-        		header("Content-Length: " . filesize($fileRoot));
-        		ob_end_flush();
-				@readfile($fileRoot);
-			}	
-		}
+		$timeFrom1 = emptyToNull($this->input->post("timeFrom1"));
+        if ($timeFrom1 == null)
+        {
+            $timeFrom1 = date("Y-m-d");
+        }
+        //$current_time = date("H:i:s");
+        //echo $current_time;
+        $timeFrom2 = emptyToNull($this->input->post("timeFrom2"));
+        if ($timeFrom2 == null)
+        {
+            $timeFrom2 = date("H")-1+1;
+        }
+        $timeFrom3 = emptyToNull($this->input->post("timeFrom3"));
+        if ($timeFrom3 == null)
+        {
+            $timeFrom3 = 0;
+        }
+        $timeFrom = $timeFrom1." ".$timeFrom2.":".$timeFrom3;
+        $timeTo1 = emptyToNull($this->input->post("timeTo1"));
+        if ($timeTo1 == null)
+        {
+            $timeTo1 = date("Y-m-d");
+        }
+        $timeTo2 = emptyToNull($this->input->post("timeTo2"));
+        if ($timeTo2 == null)
+        {
+            $timeTo2 = date("H")+1;
+        }
+        $timeTo3 = emptyToNull($this->input->post("timeTo3"));
+        if ($timeTo3 == null)
+        {
+            $timeTo3 = 0;
+        }
+        $timeTo = $timeTo1." ".$timeTo2.":".$timeTo3;
+        $testResult = emptyToNull($this->input->post('testResult'));
+        $sn = emptyToNull($this->input->post('sn'));
+        $teststation = emptyToNull($this->input->post('teststation'));
+        $equipment = emptyToNull($this->input->post('equipment'));
+        $labelnum = emptyToNull($this->input->post('labelnum'));
+        $producttype = emptyToNull($this->input->post('producttype'));
+        $ordernum = emptyToNull($this->input->post('ordernum'));
+        $tester = emptyToNull($this->input->post('tester'));
+        $platenum = emptyToNull($this->input->post('platenum'));
+        
+        $timeFromSql=" AND po.testTime >= '".$timeFrom."'";
+        $timeToSql = " AND po.testTime <= '".$timeTo."'";
+        $testResultSql = "";
+        $snSql = "";
+        $teststationSql = "";
+        $equipmentSql = "";
+        $labelnumSql = "";
+        $producttypeSql = "";
+        $testerSql = "";
+        $platenumSql = "";
+        
+        if($testResult != null)
+        {
+            if($testResult == 0 || $testResult == 1)
+            {
+                $testResultSql = " AND po.result = ".$testResult;
+            }
+            else
+            {
+                $testResultSql = " AND 0 ";
+            }
+        }
+        if($sn != null)
+        {
+            $start = strpos($sn, "+");
+            $end = strripos($sn, "+");
+            
+            if(strlen($sn) == 1)
+            {
+                $snSql = " AND po.sn LIKE '%".$sn."%' ";
+            }
+            else
+            {
+                if($start == 0 && $end == (strlen($sn)-1))
+                {
+                    $sn = substr($sn, 1,strlen($sn)-2);
+                    $snSql = " AND po.sn = '".$sn."' ";
+                }
+                else
+                {
+                    $snSql = " AND po.sn LIKE '%".$sn."%' ";
+                }
+            }
+            
+        }
+        if($equipment != null)
+        {
+            $equipmentSnObj = $this->db->query("SELECT sn FROM equipment WHERE id = '".$equipment."'");
+            $equipmentSn = $equipmentSnObj->first_row()->sn;
+            $equipmentSql = " AND po.equipmentSn = '".$equipmentSn."' ";
+        }
+        if($teststation != null)
+        {
+            $teststationSql = " AND po.testStation = '".$teststation."' ";
+        }
+        if($producttype != null)
+        {
+            $producttypeSql = " AND po.productType = '".$producttype."' ";
+        }
+        if($tester != null)
+        {
+            $testerSql = " AND po.tester = '".$tester."' ";
+        }
+        if($platenum != null)
+        {
+            $platenumSql = " AND po.platenum LIKE '%".$platenum."%' ";
+        }
+        if($labelnum != null)
+        {
+            $labelnumSql = " AND po.workorder LIKE '%".$labelnum."%' ";
+        }
+        
+        $vnaResultSql = "SELECT po.result,po.sn,te.mark,te.value
+                         FROM producttestinfo po
+                         JOIN teststation tn ON po.testStation = tn.id
+                         JOIN tester tr ON po.tester = tr.id
+                         JOIN producttype pe ON po.productType = pe.id
+                         JOIN testitemresult tt ON tt.productTestInfo = po.id
+                         JOIN testitemmarkvalue te ON te.testItemResult = tt.id
+                         AND po.tag1 = 1
+                         ".$timeFromSql.$timeToSql.$testResultSql.$snSql.$teststationSql.$equipmentSql.$producttypeSql.$testerSql.$platenumSql.$labelnumSql."
+                         ORDER BY po.testTime DESC";
+                         
+        $vnaResultObject = $this->db->query($vnaResultSql);
+        $vnaResultArray = $vnaResultObject->result_array();
+        
+        // Create new PHPExcel object
+        $objPHPExcel = new PHPExcel();
+        //write general info
+        $objPHPExcel->getActiveSheet()->setCellValueByColumnAndRow(0, 1, "序号");
+        $objPHPExcel->getActiveSheet()->setCellValueByColumnAndRow(1, 1, "序列号");
+        $prevSn = "";
+        //row start from 1
+        $rowNum = 1;
+        //column start from 0
+        $colNum = 3;
+        foreach ($vnaResultArray as $key => $value) 
+        {
+            if($prevSn != $value['sn'])
+            {
+                $rowNum++;
+                $prevSn = $value['sn'];
+                $colNum = 3;
+                $objPHPExcel->getActiveSheet()->setCellValueByColumnAndRow(0, $rowNum, $rowNum -1);
+                $objPHPExcel->getActiveSheet()->setCellValueByColumnAndRow(1, $rowNum, $value['sn']);
+                $objPHPExcel->getActiveSheet()->setCellValueByColumnAndRow(2, $rowNum, $value['value']);
+            }
+            else
+            {
+                $objPHPExcel->getActiveSheet()->setCellValueByColumnAndRow($colNum, $rowNum, $value['value']);
+                $colNum++;
+            }
+        }
+        $objPHPExcel->getActiveSheet()->setTitle('Sheet1');
+        
+        header('Content-Type: application/vnd.ms-excel');
+        header('Content-Disposition: attachment;filename="vnaresult.xls"');
+        header('Cache-Control: max-age=0');
+        // If you're serving to IE 9, then the following may be needed
+        header('Cache-Control: max-age=1');
+        
+        // If you're serving to IE over SSL, then the following may be needed
+        header ('Expires: Mon, 26 Jul 1997 05:00:00 GMT'); // Date in the past
+        header ('Last-Modified: '.gmdate('D, d M Y H:i:s').' GMT'); // always modified
+        header ('Cache-Control: cache, must-revalidate'); // HTTP/1.1
+        header ('Pragma: public'); // HTTP/1.0
+        
+        $objWriter = PHPExcel_IOFactory::createWriter($objPHPExcel, 'Excel5');
+        $objWriter->save('php://output');
+        exit;
 	}
+    
+    public function export_vna()
+    {
+        set_time_limit(0);
+        
+        //获得选中产品测试项的id,name
+        $testItemSql = "SELECT a.id,a.name FROM testitem a 
+                        JOIN status b ON a.status = b.id
+                        AND b.statusname = 'active'";
+        $testitemObject = $this->db->query($testItemSql);
+        $testitemArray = $testitemObject->result_array();
+        
+        //根据当前用户填选状况查到满足情况的SN
+        $timeFrom1 = $this->input->post("timeFrom1");
+        if($timeFrom1 == "")
+        {
+            $timeFrom1 = date("Y-m-d");
+        }
+        $timeFrom2 = $this->input->post("timeFrom2");
+        if($timeFrom2 == "")
+        {
+            $timeFrom2 = "00";
+        }
+        $timeFrom3 = $this->input->post("timeFrom3");
+        if($timeFrom3 == "")
+        {
+            $timeFrom3 = "00";
+        }
+        $timeTo1 = $this->input->post("timeTo1");
+        if($timeTo1 == "")
+        {
+            $timeTo1 = date("Y-m-d");
+        }
+        $timeTo2 = $this->input->post("timeTo2");
+        if($timeTo2 == "")
+        {
+            $timeTo2 = "23";
+        }
+        $timeTo3 = $this->input->post("timeTo3");
+        if($timeTo3 == "")
+        {
+            $timeTo3 = "59";
+        }
+        $timeFrom = $timeFrom1." ".$timeFrom2.":".$timeFrom3;
+        $timeTo = $timeTo1." ".$timeTo2.":".$timeTo3;
+        
+        $producttype = $this->input->post("producttype");
+
+        $timeConditionSql = " AND (a.testTime >= '".$timeFrom."' AND a.testTime <= '".$timeTo."')";
+        if($timeFrom != "1900-01-01 00:00" || $timeTo != "2999-01-01 00:00")
+        {
+            $timeConditionSql = " AND a.testTime >= '".$timeFrom."' AND a.testTime <= '".$timeTo."'";
+        }
+
+        $producttypeSql = "";
+
+        if($producttype != null)
+        {
+            $producttypeSql = " AND b.id = '".$producttype."'";
+        }
+        
+        $vnaTotalSnSql = "SELECT a.id,a.sn AS productsn,a.result,b.name AS producttypename,a.tag
+                          FROM producttestinfo a
+                          JOIN producttype b ON a.productType = b.id
+                           ".$timeConditionSql.$producttypeSql."
+                          ORDER BY a.testTime DESC
+                          ";
+        //echo $vnaTotalSnSql;
+        $packingTotalSnObject = $this->db->query($vnaTotalSnSql);
+        $packingTotalSnArray= $packingTotalSnObject->result_array();
+//$packingTotalSnArray = array();
+        /*
+        $packingTotalSnSql = "SELECT DISTINCT pt.id,pt.productsn,pt.boxsn,pt.result,pt.tag
+                                  FROM packingresult pt 
+                                  JOIN tester tr ON pt.packer=tr.employeeid 
+                                  LEFT JOIN producttestinfo po ON pt.productsn = po.sn
+                                  LEFT JOIN producttype pe ON po.productType = pe.id
+                                  ".$timeConditionSql.$packBoxSql.$producttypeSql.$productSnSql.$orderNumSql.$packerSql.$testResultSql." 
+                                  ORDER BY pt.packingtime DESC";
+         * 
+         */
+        //$packingTotalSnObject = $this->db->query($packingTotalSnSql);
+        //$packingTotalSnArray= $packingTotalSnObject->result_array();
+        
+        //遍历得到的序列号数组
+        if(count($packingTotalSnArray) == 0)
+        {
+            $this->_returnUploadFailed("查询数据为空");
+            return;
+        }
+        else
+        {
+            date_default_timezone_set('Asia/Shanghai');
+            $dateStamp = date("YmdHis");
+            $dateInReport = date("Y年m月d日");
+            
+            if(PHP_OS == 'WINNT')
+            {
+                $slash = "\\";
+                $downloadRoot = getcwd().$slash."assets".$slash."downloadedSource";
+            }
+            else
+            {
+                $this->_returnUploadFailed("错误的服务器操作系统");
+                return;
+            }
+            
+            //创建文件下载的根目录downloadedSource
+            if(file_exists($downloadRoot) && is_dir($downloadRoot))
+            {
+                //do nothing
+            }
+            else
+            {
+                if(mkdir($downloadRoot))
+                {
+                }
+                else
+                {
+                    $this->_returnUploadFailed("文件下载目录创建失败");
+                    return;
+                }
+            }
+            //创建当前下载的文件夹
+            $currdownloadRoot = $downloadRoot.$slash.$dateStamp;
+            if(file_exists($currdownloadRoot) && is_dir($currdownloadRoot))
+            {
+                //do noting
+            }
+            else
+            {
+                if(mkdir($currdownloadRoot))
+                {
+                    //拷贝公司logo
+                    $logoRoot = getcwd().$slash."resource".$slash."img".$slash."logo.png";
+                    if(file_exists($logoRoot))
+                    {
+                        copy($logoRoot,$currdownloadRoot.$slash."logo.png");
+                    }
+                    else
+                    {
+                        $this->_returnUploadFailed($logoRoot."公司logo不存在");
+                        return;
+                    }
+                }
+                else
+                {
+                    $this->_returnUploadFailed("创建下载根目录时出错");
+                    return;
+                }
+            }
+            //获取生产厂家名称
+            $producterRoot = getcwd().$slash."resource".$slash."producter.txt";
+            
+            if(file_exists($producterRoot))
+            {
+                $producterName = file_get_contents($producterRoot);
+            }
+            else
+            {
+                $this->_returnUploadFailed($producterRoot."未找到");
+                return;
+            }
+            
+            //创建html文件，先写index.html
+            $indexHandle = fopen($currdownloadRoot.$slash."index.html", "a");
+            fwrite($indexHandle, '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+                                  <html xmlns="http://www.w3.org/1999/xhtml">
+                                    <head>
+                                        <meta http-equiv="content-type" content="text/html;charset=utf-8">
+                                        <style type="text/css">
+                                            body{border:0px;margin:0px}
+                                            a{text-decoration:none;}
+                                            .container{width:1024px;margin:0px auto;border:1px solid black;padding:15px;}
+                                            img{width:60px;height:30px;}
+                                            table{border-collapse:collapse;}
+                                            table, td, th{border:1px solid black;}
+                                        </style>
+                                    </head>
+                                        <body>
+                                            <div class="container">
+                                                <div class="top">
+                                                    <div style="float:left;width:45%;"><img src="./logo.png"/></div>
+                                                    <div style="font-weight:bold;font-size:28px;text-align:left">质量报告</div>
+                                                </div>
+                                                <div style="margin-top:30px;margin-bottom:10px;">
+                                                    <div style="text-align:left;padding-left:70%;">
+                                                        <span>生产厂家：'.iconv("gbk", "utf-8", $producterName).'</span>
+                                                    </div>
+                                                    <div style="text-align:left;padding-left:70%;">
+                                                        <span>报告日期：'.$dateInReport.'</span>
+                                                    </div>
+                                                </div>'
+                                                );
+            fwrite($indexHandle,'<div class="content" style="padding-left:10px;padding-right:10px;font-size:13px;">
+                                ');
+            fwrite($indexHandle, '<table style="width:100%;"><tr><th>序号</th><th>产品型号</th><th>产品序列号</th><th>检测结果</th>');
+            //index.html中写入表头<th>部分的测试项--用户所选
+            if(count($testitemArray) == 0)
+            {
+                //do noting
+            }
+            else
+            {
+                //循环写入vna测试项--用户所选
+                foreach($testitemArray as $value)
+                {
+                    fwrite($indexHandle, '<th>'.$value['name'].'</th>');
+                }
+            }
+            fwrite($indexHandle, "</tr>");
+            //循环得到的序列号数组sn数组
+            foreach($packingTotalSnArray as $key=>$value)
+            {
+                fwrite($indexHandle, '<tr><td>'.($key+1).'</td>');
+                //取得产品序列号
+                $producttestinfoId = $value['id'];
+                $sn = $value['productsn'];
+                //取得测试结果
+                $result = $value['result'];
+                //取得标志位
+                $packTag = $value['tag'];
+                //取得产品类型
+                $producttype = $value['producttypename'];
+                /*
+                //取得产品类型
+                $producttypeObject = $this->db->query("SELECT pe.name FROM producttestinfo po 
+                                                       JOIN producttype pe ON po.productType = pe.id
+                                                       AND po.sn = '".$sn."'
+                                                       AND po.tag = '".$packTag."'");
+
+                $producttypeArray = $producttypeObject->result_array();
+                if(count($producttypeArray) == 0)
+                {
+                    $producttype = "";
+                }
+                else
+                {
+                    $producttype = $producttypeArray[0]["name"];
+                }
+                */
+                //index.html中写入产品类型，装箱号，序列号
+                fwrite($indexHandle, '<td>'.$producttype.'</td><td>'.$sn.'</td>');
+                //index.html中写入检测结果
+                if($result == "1")
+                {
+                    fwrite($indexHandle, '<td><span style="color:green;"><b>合格</b></span></td>');
+                }
+                else if($result == "0")
+                {
+                    fwrite($indexHandle, '<td style="color:red"><b>不合格</b></td>');
+                }
+                
+                
+                //写入各vna测试项最大值--用户所选
+                if(count($testitemArray) == 0)
+                {
+                    //do noting
+                }
+                else
+                {
+                    //从产品测试方案表中取得当前产品--实际测试项
+                    $actualTestItemObject = $this->db->query("SELECT pn.testitem FROM test_configuration pn 
+                                                              JOIN producttestinfo po ON pn.producttype = po.productType
+                                                              AND po.id = '".$producttestinfoId."'"
+                                                              );
+                                                              
+                    $actualTestItemArray = $actualTestItemObject->result_array();
+                    $actualTestItem = array();
+                    
+                    if(count($actualTestItemArray) != 0)
+                    {
+                        foreach($actualTestItemArray as $value)
+                        {
+                            array_push($actualTestItem,$value['testitem']);
+                        }
+                    }
+                    else
+                    {
+                    }
+                    
+                    //循环    用户所选的测试项
+                    foreach($testitemArray as $value)
+                    {
+                        $testitemId = $value['id'];
+                        
+                        //判断当前测试项，是否包含在当前产品实际测试项中
+                        if(in_array($testitemId,$actualTestItem))
+                        {
+                            $maxvalueObject = $this->db->query("SELECT MAX(te.value) AS value FROM testitemmarkvalue te
+                                                                JOIN testitemresult tt ON te.testItemResult = tt.id
+                                                                JOIN producttestinfo po ON tt.productTestInfo = po.id
+                                                                AND po.id = '".$producttestinfoId."'
+                                                                AND tt.testItem = '".$testitemId."'
+                                                                
+                                                                ");
+                            $maxvalueArray = $maxvalueObject->result_array();
+                            
+                            if(count($maxvalueArray) == 0)
+                            {
+                                fwrite($indexHandle, '<td>&nbsp;</td>');
+                            }
+                            else
+                            {
+                                $maxvalue = $maxvalueArray[0]['value'];
+                                fwrite($indexHandle, '<td>'.$maxvalue.'</td>');
+                            }
+                        }
+                        else
+                        {
+                            fwrite($indexHandle, '<td>&nbsp;</td>');
+                        }
+                    }
+                }
+                
+                fwrite($indexHandle, "</tr>");
+            }
+
+            fwrite($indexHandle, "</table>");
+            fwrite($indexHandle, '</div></div></body></html>');
+            fclose($indexHandle);
+            
+            exec('C:\Progra~1\7-Zip\7z.exe a -tzip '.$currdownloadRoot.'.zip '.$currdownloadRoot);
+            $this->delDirAndFile($currdownloadRoot);
+            
+            $fileRoot = $currdownloadRoot.".zip";
+            $fileName = $dateStamp.".zip";
+
+            if(!file_exists($fileRoot))
+            {
+                die("Error:File not found.");
+            }
+            else
+            {
+                header("Pragma: public");
+                header("Expires: 0");
+                header("Cache-Control: must-revalidate, post-check=0, pre-check=0");
+                header("Cache-Control: public");
+                header("Content-Description: File Transfer");
+                header("Content-type: application/octet-stream");
+                header("Content-Disposition: attachment; filename=\"" . $fileName . "\"");
+                header("Content-Transfer-Encoding: binary");
+                header("Content-Length: " . filesize($fileRoot));
+                ob_end_flush();
+                @readfile($fileRoot);
+            }   
+        }
+    }
 
 	private function _returnUploadFailed($err)
 	{
