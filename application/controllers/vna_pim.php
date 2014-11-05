@@ -704,7 +704,7 @@ class Vna_pim extends CW_Controller
             $labelnumSql = " AND po.workorder LIKE '%".$labelnum."%' ";
         }
         
-        $vnaResultSql = "SELECT po.result,po.sn,te.mark,te.value
+        $vnaResultSql = "SELECT po.result,po.testtime,po.sn,te.mark,te.value
                          FROM producttestinfo po
                          JOIN teststation tn ON po.testStation = tn.id
                          JOIN tester tr ON po.tester = tr.id
@@ -713,35 +713,53 @@ class Vna_pim extends CW_Controller
                          JOIN testitemmarkvalue te ON te.testItemResult = tt.id
                          AND po.tag1 = 1
                          ".$timeFromSql.$timeToSql.$testResultSql.$snSql.$teststationSql.$equipmentSql.$producttypeSql.$testerSql.$platenumSql.$labelnumSql."
-                         ORDER BY po.testTime DESC";
-                         
+                         ORDER BY po.sn";
+                                      
         $vnaResultObject = $this->db->query($vnaResultSql);
         $vnaResultArray = $vnaResultObject->result_array();
         
         // Create new PHPExcel object
         $objPHPExcel = new PHPExcel();
+        $styleArray = array(
+            'font'  => array(
+                'bold'  => true,
+                'color' => array('rgb' => 'FF0000'),
+                'size'  => 12
+            )
+        );
         //write general info
         $objPHPExcel->getActiveSheet()->setCellValueByColumnAndRow(0, 1, "序号");
         $objPHPExcel->getActiveSheet()->setCellValueByColumnAndRow(1, 1, "序列号");
+        $objPHPExcel->getActiveSheet()->setCellValueByColumnAndRow(2, 1, "测试时间");
         $prevSn = "";
         //row start from 1
         $rowNum = 1;
         //column start from 0
-        $colNum = 3;
+        $colNum = 4;
         foreach ($vnaResultArray as $key => $value) 
         {
             if($prevSn != $value['sn'])
             {
                 $rowNum++;
                 $prevSn = $value['sn'];
-                $colNum = 3;
+                //set colNum to 4 is for the next same sn data
+                $colNum = 4;
                 $objPHPExcel->getActiveSheet()->setCellValueByColumnAndRow(0, $rowNum, $rowNum -1);
                 $objPHPExcel->getActiveSheet()->setCellValueByColumnAndRow(1, $rowNum, $value['sn']);
-                $objPHPExcel->getActiveSheet()->setCellValueByColumnAndRow(2, $rowNum, $value['value']);
+                $objPHPExcel->getActiveSheet()->setCellValueByColumnAndRow(2, $rowNum, $value['testtime']);
+                $objPHPExcel->getActiveSheet()->setCellValueByColumnAndRow(3, $rowNum, $value['value']);
+                if($value['result'] == 0){//fail result
+                    $objPHPExcel->getActiveSheet()->getStyleByColumnAndRow(1, $rowNum)->applyFromArray($styleArray);
+                    $objPHPExcel->getActiveSheet()->getStyleByColumnAndRow(2, $rowNum)->applyFromArray($styleArray);
+                    $objPHPExcel->getActiveSheet()->getStyleByColumnAndRow(3, $rowNum)->applyFromArray($styleArray);
+                }
             }
             else
             {
                 $objPHPExcel->getActiveSheet()->setCellValueByColumnAndRow($colNum, $rowNum, $value['value']);
+                if($value['result'] == 0){//fail result
+                    $objPHPExcel->getActiveSheet()->getStyleByColumnAndRow($colNum, $rowNum)->applyFromArray($styleArray); 
+                }
                 $colNum++;
             }
         }
