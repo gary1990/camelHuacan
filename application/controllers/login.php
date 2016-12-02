@@ -736,7 +736,7 @@ class Login extends CW_Controller
 		}
 		else if (PHP_OS == 'Darwin')
 		{
-			$uploadRoot = "/Library/WebServer/Documents/aptana/xiong/assets/uploadedSource/pim";
+			$uploadRoot = "/Users/garychen/Sites/camelHuacan/assets/uploadedSource/pim";
 			$slash = "/";
 		}
 		else
@@ -801,9 +801,13 @@ class Login extends CW_Controller
 		else if (PHP_OS == 'Darwin')
 		{
 			$zip = new ZipArchive;
-			if ($zip->open($uploadRoot.$slash.$file_name) === TRUE)
+			//判断.zip文件是否有空格，并解压缩
+			$file = $uploadRoot.$slash.$file_name;
+			$file1 = str_replace(' ', '', $file);
+			rename($file,$file1);
+			if ($zip->open($file1) === TRUE)
 			{
-				$zip->extractTo($uploadRoot.$slash.substr($file_name, 0, -4).$slash);
+				$zip->extractTo(substr($file1, 0, -4).$slash);
 				$zip->close();
 				//关闭处理的zip文件
 			}
@@ -854,6 +858,7 @@ class Login extends CW_Controller
 					array_pop($lines);
 					$firstGroup = true;
 					$groupTestTime = 0;
+					$pim_ser_num = 0;
 					foreach ($lines as $line)
 					{
 						$lineContentArray = explode(",", $line);
@@ -961,6 +966,20 @@ class Login extends CW_Controller
 							return;
 						}
 						$firstGroup = false;					
+					}
+					
+					//更新整条记录的测试时间
+					$updatePimSerNumTimeSql = "UPDATE `pim_ser_num` SET `test_time`=? WHERE id = ?";
+					$updatePimSerNumTimeRes = $this->db->query($updatePimSerNumTimeSql, array(
+						$groupTestTime,
+						$pim_ser_num
+					));
+					if($updatePimSerNumTimeRes) {
+					} else {
+						$this->db->trans_rollback();
+						//false13->更新pim_ser_num测试时间失败!原始数据:$csv中$line
+						$this->_returnUploadFailed("fasle13");
+						return;
 					}
 				}
 				else

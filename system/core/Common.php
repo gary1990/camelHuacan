@@ -241,7 +241,7 @@ if ( ! function_exists('get_config'))
 		{
 			exit('Your config file does not appear to be formatted correctly.');
 		}
-
+		
 		// Are any values being dynamically replaced?
 		if (count($replace) > 0)
 		{
@@ -253,8 +253,10 @@ if ( ! function_exists('get_config'))
 				}
 			}
 		}
-
-		return $_config[0] =& $config;
+		
+		//return $_config[0] =& $config;
+		$_config[0] =& $config;
+		return $_config[0]; 	
 	}
 }
 

@@ -1,0 +1,3 @@
+create index INDEX_ser_num on pim_ser_num(ser_num);
+create index INDEX_pim_label on pim_ser_num(pim_label);
+

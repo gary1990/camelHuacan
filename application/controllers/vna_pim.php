@@ -141,8 +141,8 @@ class Vna_pim extends CW_Controller
 		$testerSql = "";
 		$platenumSql = "";
 		
-		$pim_timeFromSql=" AND pp.test_time >= '".$timeFrom."'";
-		$pim_timeToSql = " AND pp.test_time <= '".$timeTo."'";
+		$pim_timeFromSql=" AND pm.test_time >= '".$timeFrom."'";
+		$pim_timeToSql = " AND pm.test_time <= '".$timeTo."'";
 		$pim_testResultSql = "";
 		$pim_snSql = "";
 		$pim_teststationSql = "";
@@ -161,6 +161,8 @@ class Vna_pim extends CW_Controller
 			{
 				$testResultSql = " AND 0 ";
 			}
+			//TODO
+			$pim_limitSql = " LIMIT ".($offset-1)*$limit.",".$limit;
 		}
 		else
 		{
@@ -226,8 +228,8 @@ class Vna_pim extends CW_Controller
 						 JOIN tester tr ON po.tester = tr.id
 						 JOIN producttype pe ON po.productType = pe.id
 						 ".$timeFromSql.$timeToSql.$testResultSql.$snSql.$teststationSql.$equipmentSql.$producttypeSql.$testerSql.$platenumSql.$labelnumSql."
-						 ORDER BY po.testTime DESC";
-		
+						 ORDER BY po.testTime DESC";						 
+						 
 		$vnaResultObject = $this->db->query($vnaResultSql);
 		$vnaResultArray = $vnaResultObject->result_array();
 		$this->smarty->assign("vnaCount",count($vnaResultArray)-($offset-1)*$limit);
@@ -235,26 +237,21 @@ class Vna_pim extends CW_Controller
 		$vnaResultSql = $vnaResultSql." LIMIT ".($offset-1)*$limit.",".$limit;
 		$vnaResultObject = $this->db->query($vnaResultSql);
 		$vnaResultArray = $vnaResultObject->result_array();
-		/*
-		$pimResultSql = "SELECT t.id,MAX(t.test_time) AS test_time,t.col12,t.upload_date,t.model,t.ser_num,t.work_num,t.name
-							FROM (SELECT pm.id,pm.col12,pp.test_time,pp.upload_date,pm.model,pm.ser_num,pm.work_num,pl.name 
-								  FROM pim_ser_num pm
-								  JOIN pim_label pl ON pm.pim_label = pl.id 
-								  JOIN pim_ser_num_group pp ON pp.pim_ser_num = pm.id
-								  ".$pim_timeFromSql.$pim_timeToSql.$pim_snSql.$pim_labelnumSql."
-								  ) t
-							GROUP BY t.id
-							ORDER BY t.test_time DESC";
-		 * 
-		 */
-		$pimResultSql = "SELECT pm.id,pm.col12,MAX(pp.test_time) AS test_time,pp.upload_date,pm.model,pm.ser_num,pm.work_num,pl.name 
-						  FROM pim_ser_num pm
-						  JOIN pim_label pl ON pm.pim_label = pl.id 
-						  JOIN pim_ser_num_group pp ON pp.pim_ser_num = pm.id
-						  ".$pim_timeFromSql.$pim_timeToSql.$pim_snSql.$pim_labelnumSql."
-						  GROUP BY pm.id
-						  ORDER BY pp.test_time DESC
-						";
+		// $pimResultSql = "SELECT pm.id,pm.col12,MAX(pp.test_time) AS test_time,pp.upload_date,pm.model,pm.ser_num,pm.work_num,pl.name 
+		// 				  FROM pim_ser_num pm
+		// 				  JOIN pim_label pl ON pm.pim_label = pl.id 
+		// 				  JOIN pim_ser_num_group pp ON pp.pim_ser_num = pm.id
+		// 				  ".$pim_timeFromSql.$pim_timeToSql.$pim_snSql.$pim_labelnumSql."
+		// 				  GROUP BY pm.id
+		// 				  ORDER BY pp.test_time DESC
+		// 				";
+		$pimResultSql = "SELECT pm.id,pm.col12,pm.test_time AS test_time,pp.upload_date,pm.model,pm.ser_num,pm.work_num,pl.name 
+		 				  FROM pim_ser_num pm
+		 				  JOIN pim_label pl ON pm.pim_label = pl.id 
+		 				  JOIN pim_ser_num_group pp ON pp.pim_ser_num = pm.id
+		 				  ".$pim_timeFromSql.$pim_timeToSql.$pim_snSql.$pim_labelnumSql."
+		 				  ORDER BY pm.test_time DESC
+		 				";
 		$pimResultObject = $this->db->query($pimResultSql);
 		$pimResultArray = $pimResultObject->result_array();
 		$pimtotal = count($pimResultArray);
@@ -391,8 +388,8 @@ class Vna_pim extends CW_Controller
 		$testerSql = "";
 		$platenumSql = "";
 		
-		$pim_timeFromSql=" AND pp.test_time >= '".$timeFrom."'";
-		$pim_timeToSql = " AND pp.test_time <= '".$timeTo."'";
+		$pim_timeFromSql=" AND pm.test_time >= '".$timeFrom."'";
+		$pim_timeToSql = " AND pm.test_time <= '".$timeTo."'";
 		$pim_testResultSql = "";
 		$pim_snSql = "";
 		$pim_teststationSql = "";
@@ -412,6 +409,8 @@ class Vna_pim extends CW_Controller
 			{
 				$testResultSql = " AND 0 ";
 			}
+			//TODO
+			$pim_limitSql = " LIMIT ".($offset-1)*$limit.",".$limit;
 		}
 		else
 		{
@@ -485,7 +484,7 @@ class Vna_pim extends CW_Controller
 		$vnaResultObject = $this->db->query($vnaResultSql);
 		$vnaResultArray = $vnaResultObject->result_array();
 		
-		$pimResultSql = "SELECT pm.id,pm.col12,MAX(pp.test_time) AS test_time,pp.upload_date,pm.model,pm.ser_num,pm.work_num,pl.name 
+		$pimResultSql = "SELECT pm.id,pm.col12,pm.test_time AS test_time,pp.upload_date,pm.model,pm.ser_num,pm.work_num,pl.name 
 						  FROM pim_ser_num pm 
 						  JOIN pim_label pl ON pm.pim_label = pl.id 
 						  JOIN pim_ser_num_group pp ON pp.pim_ser_num = pm.id
@@ -882,6 +881,10 @@ class Vna_pim extends CW_Controller
                 $slash = "\\";
                 $downloadRoot = getcwd().$slash."assets".$slash."downloadedSource";
             }
+			else if(PHP_OS == 'Darwin') {
+				$slash = "\\";
+                $downloadRoot = getcwd().$slash."assets".$slash."downloadedSource";
+			}
             else
             {
                 $this->_returnUploadFailed("错误的服务器操作系统");
