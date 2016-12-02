@@ -1,0 +1,5 @@
+create index INDEX_pim_testtime on pim_ser_num(test_time);
+
+create index INDEX_vna_testtime on producttestinfo(testTime);
+
+SHOW INDEX FROM pim_ser_num;
