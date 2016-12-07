@@ -86,7 +86,7 @@
 <script type="text/javascript" src="{base_url()}resource/js/calendar/ui.datepicker-zh-CN.js"></script>
 <script type="text/javascript" src="{base_url()}resource/js/jquery.mulitselector.js"></script>
 <script type="text/javascript" src="{base_url()}resource/js/chosen.jquery.js"></script>
-<script src="http://malsup.github.com/jquery.form.js"></script>
+<script src="{base_url()}resource/js/jquery.form.js"></script>
 <script type="text/javascript">
 	$(document).ready(function(){
 		//可输入选择的下拉列表
@@ -259,15 +259,15 @@
 	<form name="locForm" id="locForm" method="post" action="{site_url('packing/index')}">
 		<div class="packcondition">
 			<span class="span-block"> 时间: </span>
-			<input id="date_from" class="locLong locLong1" type="text" name="timeFrom1" value="{$smarty.post.timeFrom1|default:''}"/>
-			{html_options name=timeFrom2 class=timeFrom2 options=$hourList selected=$smarty.post.timeFrom2|default:''}
+			<input id="date_from" class="locLong locLong1" type="text" name="timeFrom1" value="{$timeFrom1|default:''}"/>
+			{html_options name=timeFrom2 class=timeFrom2 options=$hourList selected=$timeFrom2|default:''}
 			:
-			{html_options name=timeFrom3 class=timeFrom3 options=$minuteList selected=$smarty.post.timeFrom3|default:''}
+			{html_options name=timeFrom3 class=timeFrom3 options=$minuteList selected=$timeFrom3|default:''}
 			至:
-			<input id="date_to" class="locLong locLong2" type="text" name="timeTo1" value="{$smarty.post.timeTo1|default:''}"/>
-			{html_options name=timeTo2 class=timeTo2 options=$hourList selected=$smarty.post.timeTo2|default:''}
+			<input id="date_to" class="locLong locLong2" type="text" name="timeTo1" value="{$timeTo1|default:''}"/>
+			{html_options name=timeTo2 class=timeTo2 options=$hourList selected=$timeTo2|default:''}
 			:
-			{html_options name=timeTo3 class=timeTo3 options=$minuteList selected=$smarty.post.timeTo3|default:''}
+			{html_options name=timeTo3 class=timeTo3 options=$minuteList selected=$timeTo3|default:''}
 		</div>
 		<div class="packcondition">
 			<span class="span-block"> 包装箱: </span>

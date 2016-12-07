@@ -60,32 +60,32 @@ class Packing extends CW_Controller
 		$timeFrom1 = $this->input->post("timeFrom1");
 		if($timeFrom1 == "")
 		{
-			$timeFrom1 = "1900-01-01";
+			$timeFrom1 = date("Y-m-d", strtotime("-1 months"));
 		}
 		$timeFrom2 = $this->input->post("timeFrom2");
 		if($timeFrom2 == "")
 		{
-			$timeFrom2 = "00";
+			$timeFrom2 = "0";
 		}
 		$timeFrom3 = $this->input->post("timeFrom3");
 		if($timeFrom3 == "")
 		{
-			$timeFrom3 = "00";
+			$timeFrom3 = "0";
 		}
 		$timeTo1 = $this->input->post("timeTo1");
 		if($timeTo1 == "")
 		{
-			$timeTo1 = "2999-01-01";
+			$timeTo1 = date("Y-m-d");
 		}
 		$timeTo2 = $this->input->post("timeTo2");
 		if($timeTo2 == "")
 		{
-			$timeTo2 = "00";
+			$timeTo2 = "0";
 		}
 		$timeTo3 = $this->input->post("timeTo3");
 		if($timeTo3 == "")
 		{
-			$timeTo3 = "00";
+			$timeTo3 = "0";
 		}
 		$timeFrom = $timeFrom1." ".$timeFrom2.":".$timeFrom3;
 		$timeTo = $timeTo1." ".$timeTo2.":".$timeTo3;
@@ -158,6 +158,13 @@ class Packing extends CW_Controller
 		$this->smarty->assign("testItemArray",$testItemArray);
 		$testitemcount = count($testItemArray);
 		$this->smarty->assign("testitemcount",$testitemcount);
+
+		$this->smarty->assign("timeFrom1",$timeFrom1);
+		$this->smarty->assign("timeFrom2", $timeFrom2);
+		$this->smarty->assign("timeFrom3", $timeFrom3);
+		$this->smarty->assign("timeTo1",$timeTo1);
+		$this->smarty->assign("timeTo2", $timeTo2);
+		$this->smarty->assign("timeTo3", $timeTo3);
 		
 		$this->smarty->assign("totalcount",$totalcount);
 		$this->smarty->assign("count",$totalcount-$offset);

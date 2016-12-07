@@ -6,4 +6,8 @@ create index INDEX_productTestInfo on testitemresult(productTestInfo);
 
 create index INDEX_testItemResult on testitemmarkvalue(testItemResult);
 
+create index INDEX_packer on packingresult(packer);
+create index INDEX_employid on tester(employeeid);
+
 SHOW INDEX FROM pim_ser_num;
+DROP INDEX INDEX_employid ON tester;
