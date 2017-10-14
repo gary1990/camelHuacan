@@ -3,6 +3,16 @@ if (!defined('BASEPATH'))
 	exit('No direct script access allowed');
 class Login extends CW_Controller
 {
+	//public $filePath = "C:\\projects\\PHP\\camelHuacan\\assets\\uploadedSource";
+    //TODO publish replace
+    private $filePath = "/Users/garychen/Sites/camelHuacan/assets/uploadedSource";
+    private $slash = "/";
+    //private $filePath = "D:\\camel\\camel\\assets\\uploadedSource";
+    //private $slash = "\\";
+
+    private $vnaClientName = "Kamel VNA Application for TS - HuaC";
+    private $vnaClientVersion = "V2.2.0";
+
 	public function __construct()
 	{
 		parent::__construct();
@@ -355,12 +365,13 @@ class Login extends CW_Controller
 	{
 		if (PHP_OS == 'WINNT')
 		{
-			$uploadRoot = "D:\\camel\\camel\\assets\\uploadedSource";
+			//$uploadRoot = "D:\\camel\\camel\\assets\\uploadedSource";
+			$uploadRoot = $this->filePath;
 			$slash = "\\";
 		}
 		else if (PHP_OS == 'Darwin')
 		{
-			$uploadRoot = "/Library/WebServer/Documents/aptana/xiong/assets/uploadedSource";
+			$uploadRoot = $this->filePath;
 			$slash = "/";
 		}
 		else
@@ -380,6 +391,7 @@ class Login extends CW_Controller
 			date_default_timezone_set('Asia/Shanghai');
 			$dateStamp = date("Y_m_d");
 			$dateStampFolder = $uploadRoot.$slash.$dateStamp;
+			//$this->_returnUploadFailed($dateStampFolder);
 			if (file_exists($dateStampFolder) && is_dir($dateStampFolder))
 			{
 				//do nothing
@@ -553,101 +565,85 @@ class Login extends CW_Controller
 						$testItemList = $this->_getDirFiles($uploadRoot.$slash.$dateStamp.$slash.substr($_FILES['file']['name'], 0, -4).$slash, 'csv', 'General.csv');
 						foreach ($testItemList as $testItemItem)
 						{
-							//插入testitemresult
-							//转换csv文件名
-							if (PHP_OS == 'WINNT')
-							{
-								$fileName = $testItemItem;
-							}
-							else if (PHP_OS == 'Darwin')
-							{
-								$fileName = urldecode($testItemItem);
-							}
-							//取得测试项目名称
-							$tmpArray = preg_split("[-|\.]", $fileName);
-							$testItemName = $tmpArray[0];
-							//取得测试项目id
-							$tmpRes = $this->db->query("SELECT id FROM testitem WHERE name = ?", array(iconv('GB2312', 'UTF-8', $testItemName)));
-							if ($tmpRes->num_rows() > 0)
-							{
-								$testItem = $tmpRes->first_row()->id;
-							}
-							else
-							{
-								$this->db->trans_rollback();
-								$this->_returnUploadFailed("文件:".$_FILES['file']['name']."中没有找到对应测试项目名称:".iconv('GB2312', 'UTF-8', $testItemName));
-								return;
-							}
-							$testResult = $tmpArray[1] == 'PASS' ? 1 : 0;
-							//取得图片文件名称
-							if (PHP_OS == 'WINNT')
-							{
-								$imgFile = iconv('GB2312', 'UTF-8', substr($testItemItem, 0, -9)."-img.png");
-							}
-							else if (PHP_OS == 'Darwin')
-								$imgFile = substr($testItemItem, 0, -9)."-img.png";
-							{
-							}
-							$testItemImg = $dateStamp.$slash.substr($_FILES['file']['name'], 0, -4).$slash.$imgFile;
-							//插入testitemresult
-							$tmpRes = $this->db->query("INSERT INTO `testitemresult`(`productTestInfo`, `testItem`, `testResult`, `img`) VALUES ($productTestInfo, $testItem, $testResult, ?)", array($testItemImg));
-							if ($tmpRes === TRUE)
-							{
-								//取得testitemresult id
-								$testItemResult = $this->db->insert_id();
-								//处理testItem文件
-								if ($handle2 = fopen($uploadRoot.$slash.$dateStamp.$slash.substr($_FILES['file']['name'], 0, -4).$slash.$testItemItem, "r"))
-								{
-									$i2 = 0;
-									while (($buffer2 = fgets($handle2)) !== false)
-									{
-										$i2 = $i2 + 1;
-										if ($i2 == 1)
-										{
-											$tmpArray2 = explode(",", $buffer2);
-											continue;
-										}
-										$tmpArray2 = explode(",", $buffer2);
-										//取得testResult
-										$singleTestResult = $tmpArray2[1];
-										//取得mark
-										$singleTextMark = $tmpArray2[0];
-										//取得channel
-										$singleTextChannel = $tmpArray2[2];
-										//取得trace
-										$singleTextTrace = $tmpArray2[3];
-										$tmpRes = $this->db->query("INSERT INTO `testitemmarkvalue`(`testItemResult`, `value`, `mark`, `channel`, `trace`) VALUES (?, ?, ?, ?, ?)", array(
-											$testItemResult,
-											$singleTestResult,
-											$singleTextMark,
-											$singleTextChannel,
-											$singleTextTrace
-										));
-										if ($tmpRes === TRUE)
-										{
-											//do nothing
-										}
-										else
-										{
-											$this->db->trans_rollback();
-											$this->_returnUploadFailed("文件:".$_FILES['file']['name']."中".iconv('GB2312', 'UTF-8', $testItemName).":$buffer2 插入失败");
-											return;
-										}
-									}
-									fclose($handle2);
-								}
-								else
-								{
-									$this->_returnUploadFailed("文件:$fileName 打开失败");
-									return;
-								}
-							}
-							else
-							{
-								$this->db->trans_rollback();
-								$this->_returnUploadFailed("文件:".$_FILES['file']['name']."中$testItemItem 插入testitemresult失败");
-								return;
-							}
+                            if(strrpos($testItemItem, "Data") <= 0) {
+                                //插入testitemresult
+                                //转换csv文件名
+                                if (PHP_OS == 'WINNT') {
+                                    $fileName = $testItemItem;
+                                } else if (PHP_OS == 'Darwin') {
+                                    $fileName = urldecode($testItemItem);
+                                }
+                                //取得测试项目名称
+                                $tmpArray = preg_split("[-|\.]", $fileName);
+                                $testItemName = $tmpArray[0];
+                                //取得测试项目id
+                                $tmpRes = $this->db->query("SELECT id FROM testitem WHERE name = ?", array(iconv('GB2312', 'UTF-8', $testItemName)));
+                                if ($tmpRes->num_rows() > 0) {
+                                    $testItem = $tmpRes->first_row()->id;
+                                } else {
+                                    $this->db->trans_rollback();
+                                    $this->_returnUploadFailed("文件:" . $_FILES['file']['name'] . "中没有找到对应测试项目名称:" . iconv('GB2312', 'UTF-8', $testItemName));
+                                    return;
+                                }
+                                $testResult = $tmpArray[1] == 'PASS' ? 1 : 0;
+                                //取得图片文件名称
+                                if (PHP_OS == 'WINNT') {
+                                    $imgFile = iconv('GB2312', 'UTF-8', substr($testItemItem, 0, -9) . "-img.png");
+                                } else if (PHP_OS == 'Darwin')
+                                    $imgFile = substr($testItemItem, 0, -9) . "-img.png";
+                                {
+                                }
+                                $testItemImg = $dateStamp . $slash . substr($_FILES['file']['name'], 0, -4) . $slash . $imgFile;
+                                //插入testitemresult
+                                $tmpRes = $this->db->query("INSERT INTO `testitemresult`(`productTestInfo`, `testItem`, `testResult`, `img`) VALUES ($productTestInfo, $testItem, $testResult, ?)", array($testItemImg));
+                                if ($tmpRes === TRUE) {
+                                    //取得testitemresult id
+                                    $testItemResult = $this->db->insert_id();
+                                    //处理testItem文件
+                                    if ($handle2 = fopen($uploadRoot . $slash . $dateStamp . $slash . substr($_FILES['file']['name'], 0, -4) . $slash . $testItemItem, "r")) {
+                                        $i2 = 0;
+                                        while (($buffer2 = fgets($handle2)) !== false) {
+                                            $i2 = $i2 + 1;
+                                            if ($i2 == 1) {
+                                                $tmpArray2 = explode(",", $buffer2);
+                                                continue;
+                                            }
+                                            $tmpArray2 = explode(",", $buffer2);
+                                            //取得testResult
+                                            $singleTestResult = $tmpArray2[1];
+                                            //取得mark
+                                            $singleTextMark = $tmpArray2[0];
+                                            //取得channel
+                                            $singleTextChannel = $tmpArray2[2];
+                                            //取得trace
+                                            $singleTextTrace = $tmpArray2[3];
+                                            $tmpRes = $this->db->query("INSERT INTO `testitemmarkvalue`(`testItemResult`, `value`, `mark`, `channel`, `trace`) VALUES (?, ?, ?, ?, ?)", array(
+                                                $testItemResult,
+                                                $singleTestResult,
+                                                $singleTextMark,
+                                                $singleTextChannel,
+                                                $singleTextTrace
+                                            ));
+                                            if ($tmpRes === TRUE) {
+                                                //do nothing
+                                            } else {
+                                                $this->db->trans_rollback();
+                                                $this->_returnUploadFailed("文件:" . $_FILES['file']['name'] . "中" . iconv('GB2312', 'UTF-8', $testItemName) . ":$buffer2 插入失败");
+                                                return;
+                                            }
+                                        }
+                                        fclose($handle2);
+                                    } else {
+                                        $this->_returnUploadFailed("文件:$fileName 打开失败");
+                                        return;
+                                    }
+                                } else {
+                                    $this->db->trans_rollback();
+                                    $this->_returnUploadFailed("文件:" . $_FILES['file']['name'] . "中$testItemItem 插入testitemresult失败");
+                                    return;
+                                }
+                            }
+
 						}
 					}
 					else
@@ -731,7 +727,7 @@ class Login extends CW_Controller
 	{
 		if (PHP_OS == 'WINNT')
 		{
-			$uploadRoot = "D:\\camel\\camel\\assets\\uploadedSource\\pim";
+			$uploadRoot = $this->filePath."\\pim";
 			$slash = "\\";
 		}
 		else if (PHP_OS == 'Darwin')
@@ -1103,6 +1099,14 @@ class Login extends CW_Controller
 		$ordernum = $_POST["ordernum"];
 		$boxsn = $_POST["boxsn"];
 		$packingTime = date("Y-m-d H:i:s");
+        //工单号
+        $jobNum = $_POST["jobNum"];
+        $factoryId = $_POST["factoryId"];
+        $materialName = $_POST["materialName"];
+        $materialCode = $_POST["materialCode"];
+        //批次号
+        $lotCode = $_POST["lotCode"];
+
 		//验证用户所选产品型号，是否与当前sn产品的实际型号对应
 		$productTypeObject = $this->db->query("SELECT pe.name 
 						     				  FROM producttestinfo po 
@@ -1119,10 +1123,10 @@ class Login extends CW_Controller
 				return;
 			}
 		}
-		
+
 		if($pimstate == "pimcheck")
 		{
-			$pimSn = $this->db->query("SELECT ser_num FROM pim_ser_num WHERE ser_num = '".$sn."'"); 
+			$pimSn = $this->db->query("SELECT ser_num,test_time FROM pim_ser_num WHERE ser_num = '".$sn."'");
 			if($pimSn->num_rows() == 0)
 			{
 				//取得vna当前tag位，如果有，取得vna当前tag1为1的tag位。如果无，标志位取0
@@ -1143,9 +1147,9 @@ class Login extends CW_Controller
 			{
 				$pim_result = $this->checkPimResult($sn);
 				if($pim_result){//pim合格，检查vna测试是否存在
-					$vnaResultSql = "SELECT po.result,po.tag FROM producttestinfo po WHERE po.sn = '".$sn."' AND po.tag1 = '1'";
-					$vnaResultObject = $this->db->query($vnaResultSql);
-					$vnaResultArray = $vnaResultObject->result_array();
+                    $vnaResultSql = "SELECT po.result,po.tag,po.testTime FROM producttestinfo po WHERE po.sn = '".$sn."' AND po.tag1 = '1'";
+                    $vnaResultObject = $this->db->query($vnaResultSql);
+                    $vnaResultArray = $vnaResultObject->result_array();
 					//判断vna测试是否存在
 					if(count($vnaResultArray) == 0)
 					{
@@ -1157,42 +1161,51 @@ class Login extends CW_Controller
 					}
 					else
 					{
+                        //查询PIM和VNA数据,生成json
+                        $jsonDataResult = $this->getVnaPimJsonData($sn, true, $factoryId, $jobNum, $materialName, $materialCode, $lotCode);
 						//vna测试存在
 						$packTag = $vnaResultArray[0]['tag'];
 						$vnaResult = $vnaResultArray[0]['result'];
+                        $vnaTestTime = preg_replace("/[\s\\-:]/", "", $vnaResultArray[0]['testTime']);
 						if($vnaResult == 1)
 						{
 							$this->db->query("INSERT INTO packingresult (packingtime,boxsn,productsn,ordernum,packer,result,tag) 
 										VALUES ('".$packingTime."','".$boxsn."','".$sn."','".$ordernum."','".$packer."','PASS','".$packTag."')");
-							print("<result><info>pass</info></result>");
+							print("<result><info>pass</info><data>$jsonDataResult</data><testtime>$vnaTestTime</testtime></result>");
 						}
 						else
 						{
 							$this->db->query("INSERT INTO packingresult (packingtime,boxsn,productsn,ordernum,packer,result,tag) 
 										VALUES ('".$packingTime."','','".$sn."','".$ordernum."','".$packer."','FAIL','".$packTag."')");
-							print("<result><info>vnaresultfail</info></result>");
+							print("<result><info>vnaresultfail</info><data>$jsonDataResult</data><testtime>$vnaTestTime</testtime></result>");
 						}
 					}
 				}else{//pim fail, get vna record tag
+                    $timeToClient = "";
+                    //查询PIM和VNA数据,生成json
+                    $jsonDataResult = $this->getVnaPimJsonData($sn, true, $factoryId, $jobNum, $materialName, $materialCode, $lotCode);
 					//取得vna当前tag位，如果有，取得vna当前tag1为1的tag位。如果无，标志位取0
-					$vnatagObj = $this->db->query("SELECT tag FROM producttestinfo po WHERE tag1 = '1' AND po.sn = '".$sn."'");
+					$vnatagObj = $this->db->query("SELECT tag,testTime FROM producttestinfo po WHERE tag1 = '1' AND po.sn = '".$sn."'");
 					if($vnatagObj->num_rows() == 0)
 					{
+                        $pimSnArray = $pimSn->result_array();
+                        $timeToClient = preg_replace("/[\s\\-:]/", "", $pimSnArray[0]['test_time']);
 						$packTag = '0';
 					}
 					else
 					{
+                        $timeToClient = preg_replace("/[\s\\-:]/", "", $vnatagObj->first_row()->testTime);
 						$packTag = $vnatagObj->first_row()->tag;
 					}
 					$this->db->query("INSERT INTO packingresult (packingtime,boxsn,productsn,ordernum,packer,result,tag) 
 									VALUES ('".$packingTime."','','".$sn."','".$ordernum."','".$packer."','FAIL','".$packTag."')");
-					print("<result><info>pimresultfail</info></result>");
+					print("<result><info>pimresultfail</info><data>$jsonDataResult</data><testtime>$timeToClient</testtime></result>");
 				}
 			}
 		}
 		else if($pimstate == "pimuncheck")
 		{
-			$pimSn = $this->db->query("SELECT ser_num FROM pim_ser_num WHERE ser_num = '".$sn."'"); 
+			$pimSn = $this->db->query("SELECT ser_num,test_time FROM pim_ser_num WHERE ser_num = '".$sn."'");
 			if($pimSn->num_rows() != 0)
 			{
 				print("<result><info>pimexsit</info></result>");
@@ -1200,7 +1213,7 @@ class Login extends CW_Controller
 			else
 			{
 				//pim测试数据不存在,直接检查vna
-				$vnaResultSql = "SELECT po.result,po.tag FROM producttestinfo po WHERE po.sn = '".$sn."' AND po.tag1 = '1'";
+				$vnaResultSql = "SELECT po.result,po.tag,po.testTime FROM producttestinfo po WHERE po.sn = '".$sn."' AND po.tag1 = '1'";
 				$vnaResultObject = $this->db->query($vnaResultSql);
 				$vnaResultArray = $vnaResultObject->result_array();
 				if(count($vnaResultArray) == 0)
@@ -1213,27 +1226,30 @@ class Login extends CW_Controller
 				}
 				else
 				{
+                    //查询PIM和VNA数据,生成json
+                    $jsonDataResult = $this->getVnaPimJsonData($sn, false, $factoryId, $jobNum, $materialName, $materialCode, $lotCode);
 					//van结果不为空
 					$packTag = $vnaResultArray[0]['tag'];
 					$vnaResult = $vnaResultArray[0]['result'];
+                    $vnaTesttime = preg_replace("/[\s\\-:]/", "", $vnaResultArray[0]['testTime']);
 					if($vnaResult == 1)
 					{
 						$this->db->query("INSERT INTO packingresult (packingtime,boxsn,productsn,ordernum,packer,result,tag) 
 										VALUES ('".$packingTime."','".$boxsn."','".$sn."','".$ordernum."','".$packer."','PASS','".$packTag."')");
-						print("<result><info>pass</info></result>");
+						print("<result><info>pass</info><data>$jsonDataResult</data><testtime>$vnaTesttime</testtime></result>");
 					}
 					else
 					{
 						$this->db->query("INSERT INTO packingresult (packingtime,boxsn,productsn,ordernum,packer,result,tag) 
 										VALUES ('".$packingTime."','','".$sn."','".$ordernum."','".$packer."','FAIL','".$packTag."')");
-						print("<result><info>vnaresultfail</info></result>");
+						print("<result><info>vnaresultfail</info><data>$jsonDataResult</data><testtime>$vnaTesttime</testtime></result>");
 					}
 				}
 			}
 		}
 		else
 		{
-			$vnaResultSql = "SELECT po.result,po.tag FROM producttestinfo po WHERE po.sn = '".$sn."' AND po.tag1 = '1'";
+			$vnaResultSql = "SELECT po.result,po.tag,po.testTime FROM producttestinfo po WHERE po.sn = '".$sn."' AND po.tag1 = '1'";
 			$vnaResultObject = $this->db->query($vnaResultSql);
 			$vnaResultArray = $vnaResultObject->result_array();
 			if(count($vnaResultArray) == 0)
@@ -1246,24 +1262,29 @@ class Login extends CW_Controller
 			}
 			else
 			{
+                //查询PIM和VNA数据,生成json
+                $jsonDataResult = $this->getVnaPimJsonData($sn, false, $factoryId, $jobNum, $materialName, $materialCode, $lotCode);
 				//van结果不为空
 				$packTag = $vnaResultArray[0]['tag'];
 				$vnaResult = $vnaResultArray[0]['result'];
+                $vnaTestTime = preg_replace("/[\s\\-:]/", "", $vnaResultArray[0]['testTime']);
+
 				if($vnaResult == 1)
 				{
 					$this->db->query("INSERT INTO packingresult (packingtime,boxsn,productsn,ordernum,packer,result,tag) 
 										VALUES ('".$packingTime."','".$boxsn."','".$sn."','".$ordernum."','".$packer."','PASS','".$packTag."')");
-					print("<result><info>pass</info></result>");
+					print("<result><info>pass</info><data>$jsonDataResult</data><testtime>$vnaTestTime</testtime></result>");
 				}
 				else
 				{
 					$this->db->query("INSERT INTO packingresult (packingtime,boxsn,productsn,ordernum,packer,result,tag) 
 										VALUES ('".$packingTime."','','".$sn."','".$ordernum."','".$packer."','FAIL','".$packTag."')");
-					print("<result><info>vnaresultfail</info></result>");
+					print("<result><info>vnaresultfail</info><data>$jsonDataResult</data><testtime>$vnaTestTime</testtime></result>");
 				}
 			}	
 		}
 	}
+
 	//包装客户端取得产品型号的方法
 	public function getProducttype()
 	{
@@ -1284,6 +1305,12 @@ class Login extends CW_Controller
 			print("<result><info>$producttype</info></result>");
 		}
 	}
+
+    //包装客户端, 包装完成一箱, 调用方法
+    public function insertPackResult() {
+        $recordstring = $_POST['recordstring'];
+        print("<result><info>$recordstring</info></result>");
+    }
 	
 	public function vnaSnExistCheck($sn = null)
 	{
@@ -1308,6 +1335,366 @@ class Login extends CW_Controller
 		xml_add_child($uploadResult, 'result', $result);
 		xml_print($dom);
 	}
+
+	
+	//包装客户端返回vna，pim测试数据
+	public function getVnaPimJsonData($sn, $needPim, $fatory = "", $work_order = "", $uut_name = "", $uut_code = "", $lot_code = "") {
+		$jsonResult = new stdClass();
+		$vnaInfoResultSql = "select po.sn as serial_number, po.equipmentSn, po.testTime,
+                                CASE po.result WHEN 1 THEN 'passed' ELSE 'failed' END as testresult,
+                                ts.name as site_code, 
+                                tr.fullname as operator, section.name as operation_sequence,
+                                pe.name as producttype,
+                                ti.name as testitemname,
+                                tt.img, tt.testItem as testItemID,
+                                CASE tt.testResult WHEN 1 THEN 'passed' ELSE 'failed' END as itemResult,
+                                et.partnumber as ate_name
+                              from producttestinfo po
+                                join testitemresult tt on tt.productTestInfo = po.id
+                                join teststation ts on ts.id = po.testStation
+                                join tester tr on po.tester = tr.id
+                                join producttype pe on po.productType = pe.id
+                                join testitem ti on tt.testItem = ti.id
+                                join tester_section section on tr.tester_section = section.id
+                                join equipment et on po.equipmentSn = et.`sn`
+							  where po.sn = '" .$sn ."'
+							  and po.tag1 = 1";
+		$vnaInfoResult = $this->db->query($vnaInfoResultSql);
+		$vnaInfoResultArray = $vnaInfoResult->result_array();
+
+        //只有VNA测试存在的时候, PIM才会有数据
+		if(count($vnaInfoResultArray) > 0) {
+			$vnaInfoResultObj = $vnaInfoResultArray[0];
+			//厂区
+			$jsonResult->factory = $fatory;
+			//加工线体
+			$jsonResult->line = "";
+			//uut_info 被测对象基本信息
+			$jsonResult->uut_info = new stdClass();
+			$jsonResult->uut_info->work_order = $work_order;
+			//uut_type固定值，供应商用0
+			$jsonResult->uut_info->uut_type = "0";
+			//uut_name 物料名称
+			$jsonResult->uut_info->uut_name = $uut_name;
+			//uut_code 物料编码
+			$jsonResult->uut_info->uut_code = $uut_code;
+			//serial_number 物料条码
+			$jsonResult->uut_info->serial_number = trim($sn);
+			//supplier
+			$jsonResult->uut_info->supplier = "";
+			//date_code
+			$jsonResult->uut_info->date_code = "";
+			//lot_code, 批次号
+			$jsonResult->uut_info->lot_code = $lot_code;
+			//mould
+			$jsonResult->uut_info->mould = "";
+			//cavity
+			$jsonResult->uut_info->cavity = "";
+			//colour
+			$jsonResult->uut_info->colour = "";
+
+			//ate_info 测试设备信息, 必填
+			$jsonResult->ate_info = new stdClass();
+			//ate_name, 测试装备名称
+			$jsonResult->ate_info->ate_name = $vnaInfoResultObj['ate_name'];
+			//computer_name
+			$jsonResult->ate_info->computer_name = "";
+			//fixuer_id
+			$jsonResult->ate_info->fixuer_id = "";
+
+			//program_info 测试程序信息，必填
+			$jsonResult->program_info = new stdClass();
+			//program_name， 测试程序名称
+			$jsonResult->program_info->program_name = $this->vnaClientName;
+			//program_ver， 测试程序版本
+			$jsonResult->program_info->program_ver = $this->vnaClientVersion;
+
+			//uut_result, 物料测试结果, 必填
+			$jsonResult->uut_result = new stdClass();
+			//operator 操作员
+			$jsonResult->uut_result->operator = $vnaInfoResultObj['operator'];
+			//operation_sequence 测试工序
+			$jsonResult->uut_result->operation_sequence = $vnaInfoResultObj['operation_sequence'];
+			//site_code 测试工站
+			$jsonResult->uut_result->site_code = $vnaInfoResultObj['site_code'];
+			//start_time	测试开始时间
+			$jsonResult->uut_result->start_time = $vnaInfoResultObj['testTime'];
+			//stop_time	测试结束时间
+			$jsonResult->uut_result->stop_time = $vnaInfoResultObj['testTime'];
+			//test_result	测试结果
+			$jsonResult->uut_result->test_result = $vnaInfoResultObj['testresult'];
+
+			//test_item_list 测试项/子项结果列表（数组）
+			$jsonResult->test_item_list = array();
+
+			foreach ($vnaInfoResultArray as $value) {
+				$testItemname = $value["testitemname"];
+
+
+				$testItemPath = $this->filePath.$this->slash.(substr($value["img"], 0, strrpos($value["img"], "\\"))).$this->slash;
+				//TODO 暂时替换,发布去除
+                //$testItemPath = str_replace("\\", $this->slash, $testItemPath);
+
+                $itemObj = new stClass();
+                $itemObj->id = $value["testItemID"];
+                $itemObj->item_name = $testItemname;
+                $itemObj->start_time = $value["testTime"];
+                $itemObj->stop_time = $value["testTime"];
+                $itemObj->test_result = $value["itemResult"];
+                $itemObj->result_desc = "";
+                //是否值类型, 固定值Y
+                $itemObj->value_flag = "Y";
+                $itemObj->lower_limit = "";
+                $itemObj->upper_limit = "";
+                $itemObj->test_value = "";
+
+                $itemObj->sub_test_item_list = array();
+
+                //$itemFiles = glob($testItemPath."TraceData*.csv");
+                //TODO 华灿不能用下面
+                //$itemFiles = glob($testItemPath."TraceData-".$testItemname."*.csv");
+
+                //print_r($testItemPath);
+                //return;
+
+                foreach ($itemFiles as $itemFilePath) {
+                    $subitemID = 1;
+
+                    if ($file_content = file_get_contents($itemFilePath)) {
+                        $itemResultStr = substr($itemFilePath, strrpos($itemFilePath, "-") + 1);
+                        $itemResultStr = substr($itemResultStr, 0, strrpos($itemResultStr, "."));
+                        $itemResult = strtoupper($itemResultStr) == "PASS" ? "passed" : "failed";
+
+                        //获取当前测试记录的极限线数组
+                        $limitLinesArray = $this->getLimitsArrayByDataFile($testItemPath, $itemFilePath, $testItemname);
+
+                        //去除csv文件引号中的换行符号
+                        $pattern = '/"([0-9.;\-]+)\r\n"/';
+                        $replacement = '"${1}"';
+                        $file_content = preg_replace($pattern, $replacement, $file_content);
+                        //一个line表示一个组
+                        $lines = explode("\n", str_replace("\r", "", $file_content));
+                        //删除lines中由最后一个回车换行造成的空元素
+                        array_pop($lines);
+                        foreach ($lines as $line) {
+                            $subItemObj = new stdClass();
+                            $subItemObj->id = "" . $subitemID;
+                            //测试子项名称
+                            $subItemObj->sub_item_name = $testItemname;
+                            $subItemObj->start_time = $value["testTime"];
+                            $subItemObj->stop_time = $value["testTime"];
+                            $subItemObj->test_result = $itemResult;
+
+                            $lineArr = preg_split("/,/", preg_replace("/\s/", "", $line));
+                            $freqVal = $lineArr[0] ? $this->convertVNAData($lineArr[0], 6) : '';
+                            $dataVal = $lineArr[1] ? $this->convertVNAData($lineArr[1], 0) : '';
+
+                            $currFreqLimitResult = $this->getFreqLimitAndFreqResult($lineArr[0],$lineArr[1],$limitLinesArray);
+
+                            //测试频点值
+                            $subItemObj->result_desc = "" . $freqVal;
+                            $subItemObj->value_flag = 'Y';
+                            $subItemObj->lower_limit = "";
+                            $subItemObj->upper_limit = "";
+                            $subItemObj->test_value = "" . $dataVal;
+                            if(count($currFreqLimitResult) > 0) {
+                                if($currFreqLimitResult[1] == "MAX") {
+                                    $subItemObj->upper_limit = "".$currFreqLimitResult[0];
+                                } else {
+                                    $subItemObj->lower_limit = "".$currFreqLimitResult[0];
+                                }
+                                $subItemObj->test_result = $currFreqLimitResult[2];
+                            }
+
+                            array_push($itemObj->sub_test_item_list, $subItemObj);
+
+                            $subitemID++;
+                        }
+                    }
+                }
+
+                array_push($jsonResult->test_item_list, $itemObj);
+			}
+
+			//PIM数据
+            if($needPim) {
+                $pimGroupInfoSql = "SELECT a.group_id, a.test_time, substring( a.col12, 12 ) as limit_line, max( a.value ) AS maxval, max( a.value ) > substring( a.col12, 12 ) AS result
+								FROM (
+									SELECT pp.id as group_id, pm.model, pm.col12, pp.test_time, pa.frequency, pa.value
+									FROM pim_ser_num pm
+									JOIN pim_ser_num_group pp ON pp.pim_ser_num = pm.id
+									JOIN pim_ser_num_group_data pa ON pa.pim_ser_num_group = pp.id
+									WHERE pm.ser_num = '".$sn."'
+								)a
+								GROUP BY a.test_time
+								ORDER BY a.test_time DESC";
+                $pimGroupInfoResult = $this->db->query($pimGroupInfoSql);
+                $pimGroupInfoArray = $pimGroupInfoResult->result_array();
+                if(count($pimGroupInfoArray) > 0) {
+                    foreach ($pimGroupInfoArray as $pimGroup) {
+                        $pimResultObj = new stdClass();
+                        //PIM测试, 固定值10
+                        $pimResultObj->id = "10";
+                        $pimResultObj->item_name = "PIM";
+                        $pimResultObj->start_time = $pimGroup['test_time'];
+                        $pimResultObj->stop_time = $pimGroup['test_time'];
+                        $pimResultObj->test_result = $pimGroup["result"] == 1 ? "failed" : "passed";
+                        $pimResultObj->result_desc = "";
+                        $pimResultObj->value_flag = "Y";
+                        $pimResultObj->lower_limit = "";
+                        $pimResultObj->upper_limit = trim($pimGroup['limit_line']);
+                        $pimResultObj->test_value = "";
+
+                        $pimResultObj->sub_test_item_list = array();
+
+                        $pimGroupID = $pimGroup["group_id"];
+
+                        $pimGroupDataSql = "select * from pim_ser_num_group_data where pim_ser_num_group = ".$pimGroupID;
+                        $pimGroupDataResult = $this->db->query($pimGroupDataSql);
+                        $pimGroupDataArray = $pimGroupDataResult->result_array();
+                        foreach ($pimGroupDataArray as $pimGroupData) {
+                            $pimSubItemID = 1;
+
+                            $pimSubitemObj = new stdClass();
+                            $pimSubitemObj->id = "".$pimSubItemID;
+                            $pimSubitemObj->sub_item_name = "PIM";
+                            $pimSubitemObj->start_time = $pimGroup['test_time'];
+                            $pimSubitemObj->stop_time = $pimGroup['test_time'];
+                            $pimSubitemObj->test_result = $pimGroupData["value"] > trim($pimGroup['limit_line']) ? "failed" : "passed";
+                            $pimSubitemObj->result_desc = "".floatval($pimGroupData["frequency"]);
+                            $pimSubitemObj->value_flag = "Y";
+                            $pimSubitemObj->lower_limit = "";
+                            $pimSubitemObj->upper_limit = trim($pimGroup['limit_line']);
+                            $pimSubitemObj->test_value = $pimGroupData["value"];
+
+                            array_push($pimResultObj->sub_test_item_list, $pimSubitemObj);
+
+                            $pimSubItemID++;
+                        }
+
+                        array_push($jsonResult->test_item_list, $pimResultObj);
+                    }
+                }
+            }
+		}
+		return json_encode($jsonResult);
+	}
+
+	//根据测试文件名称,测试项名。 获取该测试文件测试时对应的极限线
+    /**
+     * @param $folderPath 文件保存路径
+     * @param $testDataFilePath 测试数据文件路径
+     * @param $testItemName 测试项名称
+     * @return array 返回极限线数组, index 0: (0: 关闭；1: 上限线；2: 下限线); index 1: 起始频点; index 2: 终止频点; index 3: 起始极限值; index 4: 终止极限值;
+     */
+	private function getLimitsArrayByDataFile($folderPath, $testDataFilePath, $testItemName) {
+        $limitArr = array();
+
+        $limitFiles = glob($folderPath."LimitData*.csv");
+
+        $testDataFileName = substr($testDataFilePath, strripos($testDataFilePath, $this->slash) + 1);
+
+        foreach($limitFiles as $limitFile) {
+            $channelInfo = substr($limitFile, strripos($limitFile, "-") + 1, -4);
+            if(strrpos($testDataFileName, $channelInfo)) {
+                if($limitFileContent =  file_get_contents(($limitFile))) {
+                    $allLimit = preg_split("/,/", $limitFileContent);
+                    if(count($allLimit) > 0) {
+                        //去除第一个元素,代表有几个极限线
+                        $limitCount = array_shift($allLimit);
+                        $limitCount = $this->convertVNAData($limitCount, 0);
+                        if($limitCount * 5 == count($allLimit)) {
+                            $groupNum = 1;
+                            $currLimit = array();
+                            for($i = 0; $i < count($allLimit); $i++) {
+                                array_push($currLimit, $allLimit[$i]);
+                                if($groupNum == 5) {
+                                    array_push($limitArr, $currLimit);
+                                    $groupNum = 1;
+                                } else {
+                                    $groupNum++;
+                                }
+                            }
+                        }
+                    }
+                }
+
+            }
+        }
+
+        return $limitArr;
+    }
+
+    /**
+     * @param $frequence 频点值, 科学计数法
+     * @param $testValue 频点下的测试值,
+     * @param $channelLimitsArray 所在channel的极限线数组
+     * @return $result 返回结果数组, index 0: 该频点的极限值, index 2: 上限(MAX), 下限(MIN), index 3: 频点测试结果
+     */
+    private function getFreqLimitAndFreqResult($frequence, $testValue, $channelLimitsArray) {
+        $result = array();
+        if(count($channelLimitsArray) > 0) {
+            foreach ($channelLimitsArray as $channelLimit) {
+                $limitType = $this->convertVNAData($channelLimit[0], 0);
+                if($limitType != 0) {
+
+                    //频点在当前极限线的起截止频率内
+                    $convertFreq = $this->convertVNAData($frequence, 6);
+                    if($frequence >= $this->convertVNAData($channelLimit[1], 6)  && $convertFreq <= $this->convertVNAData($channelLimit[2], 6)) {
+                        $currFreqLimit = $this->getLimitData($channelLimit[1], 6, $channelLimit[2], 6, $frequence, 6, $channelLimit[3], $channelLimit[4]);
+                        array_push($result, $currFreqLimit);
+                        if($limitType == 1) {
+                            array_push($result, "MAX");
+                            if($testValue >= $currFreqLimit) {
+                                array_push($result, "failed");
+                            } else {
+                                array_push($result, "passed");
+                            }
+                        } else {
+                            array_push($result, "MIN");
+                            if($testValue <= $currFreqLimit) {
+                                array_push($result, "failed");
+                            } else {
+                                array_push($result, "passed");
+                            }
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+        return $result;
+    }
+
+	public function testGetLimit() {
+	    echo $this->convertVNAData("+0.00000000000E+000", 0);
+	    //echo $this->getLimitData("+4.00000000000E+008", 0, "+2.20000000000E+009", 0, "+2.40000000000E+008", 0, "+1.10000000000E+000","+1.10000000000E+000");
+    }
+
+	private function getLimitData($startFreq, $startUnit, $stopFreq, $stopUnit, $currFreq, $currUnit, $startRes, $stopRes) {
+	    $destinationRes = "";
+        $startRes = floatval($startRes);
+        $stopRes = floatval($stopRes);
+        $startFreq = $this->convertVNAData($startFreq, $startUnit);
+        $stopFreq = $this->convertVNAData($stopFreq, $stopUnit);
+        $currFreq = $this->convertVNAData($currFreq, $currUnit);
+        if($startRes == $stopRes) {
+            $destinationRes = $startRes;
+            return $destinationRes;
+        }
+
+        $destinationRes = (($currFreq - $startFreq) * $stopRes - ($currFreq - $stopFreq) * $startRes) / ($stopFreq - $startFreq);
+
+        return $destinationRes;
+    }
+
+	//转换网分计数法, unit代表需要转换成的数量级, 5.44000000E+08
+    private function convertVNAData($dataStr, $unit) {
+        $dataArr =  preg_split("/E\\+/", $dataStr);
+        $dataValue = floatval($dataArr[0]);
+        return ($dataValue * pow(10, $dataArr[1])) / pow(10, $unit);
+    }
+
 	//cheack pim result
 	protected function checkPimResult($pim_ser_num)
 	{
