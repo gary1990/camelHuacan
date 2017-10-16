@@ -135,8 +135,11 @@
 						</tr>
 					{/foreach}
 				</table>
-				<div class="vnaimg"><img src="{base_url()}assets/uploadedSource/{$value['0']|regex_replace:"/[\\\\]/":"/"}" class="vnaImg"/></div>
+				<div class="vnaimg"><img src="{base_url()}uploadedSource/{$value['0']|regex_replace:"/[\\\\]/":"/"}" class="vnaImg"/></div>
 			{/foreach}
+			<hr class="hr_line">
+			<span class="testitem">耐压测试</span>
+			<div>{$hiPotResult}</div>
 			<hr class="separate_line">
 			<span class="testitem">PIM测试</span>
 			<div>
@@ -174,7 +177,7 @@
 			{foreach from=$pimmaxdataArray key=k item=value}
 				<div style="display: inline-block;margin-top:10px;margin-right:25px;">
 					<div>组{$k+1}</div>
-					<img class="pimImg" src="{base_url()}assets/uploadedSource/pim/{$value['upload_date']|regex_replace:"/[-]/":"_"}/{$pimbasicInfo['name']|default:''}_{$productsn|regex_replace:"/[\s]/":""}/{$productsn}_{$value['test_time']|regex_replace:'/[-:\s]/':''}.jpg"/>
+					<img class="pimImg" src="{base_url()}uploadedSource/pim/{$value['upload_date']|regex_replace:"/[-]/":"_"}/{$pimbasicInfo['name']|default:''}_{$productsn|regex_replace:"/[\s]/":""}/{$productsn}_{$value['test_time']|regex_replace:'/[-:\s]/':''}.jpg"/>
 				</div>
 			{/foreach}
 		</div>

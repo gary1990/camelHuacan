@@ -5,10 +5,12 @@ class Login extends CW_Controller
 {
 	//public $filePath = "C:\\projects\\PHP\\camelHuacan\\assets\\uploadedSource";
     //TODO publish replace
-    private $filePath = "/Users/garychen/Sites/camelHuacan/assets/uploadedSource";
+    //private $filePath = "/Users/garychen/Sites/camelHuacan/assets/uploadedSource";
     private $slash = "/";
     //private $filePath = "D:\\camel\\camel\\assets\\uploadedSource";
     //private $slash = "\\";
+    //for kingsignal
+    private $filePath = "E:\\camel\\projects\\camel\\uploadedSource";
 
     private $vnaClientName = "Kamel VNA Application for TS - HuaC";
     private $vnaClientVersion = "V2.2.0";
@@ -1124,6 +1126,24 @@ class Login extends CW_Controller
 			}
 		}
 
+		//检查耐压测试是否合格
+        $hiPotInfoObj = $this->db->query("SELECT * 
+                                          FROM hi_pot_result hpr
+                                          WHERE hpr.sn = '".$sn."'
+                                          AND hpr.finalresult = 1
+                                          ORDER BY hpr.id DESC");
+        $hiPotInfoArr = $hiPotInfoObj->result_array();
+        if(count($hiPotInfoArr) == 0) {
+            print("<result><info>hipotresultnull</info></result>");
+            return;
+        } else {
+            if($hiPotInfoArr[0]["result"]) {
+            } else {
+                print("<result><info>hipotresultfail</info></result>");
+                return;
+            }
+        }
+
 		if($pimstate == "pimcheck")
 		{
 			$pimSn = $this->db->query("SELECT ser_num,test_time FROM pim_ser_num WHERE ser_num = '".$sn."'");
@@ -1430,12 +1450,11 @@ class Login extends CW_Controller
 			foreach ($vnaInfoResultArray as $value) {
 				$testItemname = $value["testitemname"];
 
-
 				$testItemPath = $this->filePath.$this->slash.(substr($value["img"], 0, strrpos($value["img"], "\\"))).$this->slash;
 				//TODO 暂时替换,发布去除
                 //$testItemPath = str_replace("\\", $this->slash, $testItemPath);
 
-                $itemObj = new stClass();
+                $itemObj = new \stdClass();
                 $itemObj->id = $value["testItemID"];
                 $itemObj->item_name = $testItemname;
                 $itemObj->start_time = $value["testTime"];
@@ -1450,14 +1469,17 @@ class Login extends CW_Controller
 
                 $itemObj->sub_test_item_list = array();
 
-                //$itemFiles = glob($testItemPath."TraceData*.csv");
-                //TODO 华灿不能用下面
-                //$itemFiles = glob($testItemPath."TraceData-".$testItemname."*.csv");
+                $itemFiles = glob($testItemPath."TraceData-*.csv");
+                $itemFilesReal = array();
 
-                //print_r($testItemPath);
-                //return;
+                foreach($itemFiles as $f) {
+                    $nameUtf8 = iconv("gbk", "utf-8", $f);
+                    if(strpos($nameUtf8, "TraceData-".$testItemname."-")) {
+                        array_push($itemFilesReal, $f);
+                    };
+                };
 
-                foreach ($itemFiles as $itemFilePath) {
+                foreach ($itemFilesReal as $itemFilePath) {
                     $subitemID = 1;
 
                     if ($file_content = file_get_contents($itemFilePath)) {
@@ -1486,6 +1508,11 @@ class Login extends CW_Controller
                             $subItemObj->test_result = $itemResult;
 
                             $lineArr = preg_split("/,/", preg_replace("/\s/", "", $line));
+
+                            if(!is_numeric($lineArr[0])) {
+                                continue;
+                            }
+
                             $freqVal = $lineArr[0] ? $this->convertVNAData($lineArr[0], 6) : '';
                             $dataVal = $lineArr[1] ? $this->convertVNAData($lineArr[1], 0) : '';
 
@@ -1588,10 +1615,24 @@ class Login extends CW_Controller
      * @return array 返回极限线数组, index 0: (0: 关闭；1: 上限线；2: 下限线); index 1: 起始频点; index 2: 终止频点; index 3: 起始极限值; index 4: 终止极限值;
      */
 	private function getLimitsArrayByDataFile($folderPath, $testDataFilePath, $testItemName) {
+//	    print_r($testDataFilePath);
+//        echo "<br>";
+//        print_r(iconv("gbk", "utf-8", $testDataFilePath));
+//        echo "<br>";
+//        print_r($testItemName);
+//        echo "<br>";
+        //获取当前测试项的channel
+
+        $subPath1 = substr($testDataFilePath, strpos($testDataFilePath, "-" ) + 1);
+        $subPath2 = substr($subPath1, strpos($subPath1, "-" ) + 1);
+        $channelStr = substr(substr($subPath2, 0, strpos($subPath2, "-" )), 0, 3);
+        $limitFileName = $folderPath . "LimitData-". iconv("utf-8", "gbk", $testItemName)."-".$channelStr.".csv";
+        $limitFiles = array();
+        if(file_exists($limitFileName)) {
+            array_push($limitFiles, $limitFileName);
+        }
+
         $limitArr = array();
-
-        $limitFiles = glob($folderPath."LimitData*.csv");
-
         $testDataFileName = substr($testDataFilePath, strripos($testDataFilePath, $this->slash) + 1);
 
         foreach($limitFiles as $limitFile) {

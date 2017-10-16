@@ -47,10 +47,11 @@ class CW_Controller extends CI_Controller
 						 "用户组"=>"用户组"
 						 );
 		$this->smarty->assign('items', $itemArr);
-		
+
 		//取得生产厂家名称
 		$producterUrl = base_url()."resource/producter.txt";
 		$producter = @file_get_contents($producterUrl);
+
 		if($producter == FALSE)
 		{
 			$producter = "未找到配置文件producter.txt";
@@ -60,10 +61,12 @@ class CW_Controller extends CI_Controller
 			$producter = iconv("gbk", "utf-8", $producter);
 		}
 		$this->smarty->assign("producter",$producter);
-		
+
 		if (!CW_Controller::_checkLogin())
 		{
+
 			redirect(base_url()."index.php/login");
+
 		}
 	}
 

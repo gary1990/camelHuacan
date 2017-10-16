@@ -409,6 +409,23 @@ class Packing extends CW_Controller
 			}
 		}
 		$this->smarty->assign("result",$result);
+
+        //获取耐压测试基本信息
+        $hiPotInfoObj = $this->db->query("SELECT * 
+                                          FROM hi_pot_result hpr
+                                          WHERE hpr.sn = '".$productsn."'
+                                          AND hpr.finalresult = 1
+                                          ORDER BY hpr.id DESC");
+        $hiPotInfoArr = $hiPotInfoObj->result_array();
+        if(count($hiPotInfoArr) == 0) {
+            $this->smarty->assign("hiPotResult", "未测试");
+        } else {
+            if($hiPotInfoArr[0]["result"]) {
+                $this->smarty->assign("hiPotResult", "合格");
+            } else {
+                $this->smarty->assign("hiPotResult", "不合格");
+            }
+        }
 		
 		//获取PIM基本信息
 		$pimbasicInfoObject = $this->db->query("SELECT pl.name,pm.col12,pm.col13,MAX(pp.test_time) AS testtime,pp.upload_date
@@ -527,8 +544,25 @@ class Packing extends CW_Controller
 			}
 		}
 		$this->smarty->assign("result",$result);
-		
-		//获取PIM基本信息
+
+        //获取耐压测试基本信息
+        $hiPotInfoObj = $this->db->query("SELECT * 
+                                          FROM hi_pot_result hpr
+                                          WHERE hpr.sn = '".$productsn."'
+                                          AND hpr.finalresult = 1
+                                          ORDER BY hpr.id DESC");
+        $hiPotInfoArr = $hiPotInfoObj->result_array();
+        if(count($hiPotInfoArr) == 0) {
+            $this->smarty->assign("hiPotResult", "未测试");
+        } else {
+            if($hiPotInfoArr[0]["result"]) {
+                $this->smarty->assign("hiPotResult", "合格");
+            } else {
+                $this->smarty->assign("hiPotResult", "不合格");
+            }
+        }
+
+        //获取PIM基本信息
 		$pimbasicInfoObject = $this->db->query("SELECT pl.name,pm.col12,pm.col13,MAX(pp.test_time) AS testtime,pp.upload_date
 												FROM pim_label pl
 												JOIN pim_ser_num pm ON pm.pim_label = pl.id

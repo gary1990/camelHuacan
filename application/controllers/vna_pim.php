@@ -492,6 +492,7 @@ class Vna_pim extends CW_Controller
 						  GROUP BY pm.id
 						  ORDER BY pp.test_time DESC
 						  ";
+
 		$pimResultObject = $this->db->query($pimResultSql);
 		$pimResultArray = $pimResultObject->result_array();
 		$pimtotal = count($pimResultArray);
