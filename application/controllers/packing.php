@@ -199,6 +199,7 @@ class Packing extends CW_Controller
 											JOIN tester tr ON po.tester = tr.id
 											JOIN teststation tn ON po.testStation = tn.id
 											WHERE po.sn = '".$productsn."'
+											AND po.tag1 = 1
 											AND po.tag = '".$packTag."'");
 		$basicInfoArray = $basicInfoObject->result_array();
 		if(count($basicInfoArray) != 0)
@@ -218,6 +219,7 @@ class Packing extends CW_Controller
 										JOIN testitemmarkvalue te ON te.testItemResult = tt.id
 										JOIN testitem tm ON tt.testItem = tm.id
 										WHERE po.sn = '".$productsn."'
+										AND po.tag1 = 1
 										AND po.tag = '".$packTag."'");
 		$testDetailArray = $testDetailObject->result_array();
 		//结果数组
@@ -244,12 +246,15 @@ class Packing extends CW_Controller
 		$this->smarty->assign("result",$result);
 		
 		//获取PIM基本信息
-		$pimbasicInfoObject = $this->db->query("SELECT pl.name,pm.col12,pm.col13,MAX(pp.test_time) AS testtime,pp.upload_date
+		$pimbasicInfoObject = $this->db->query("SELECT pl.name,pm.col12,tr.fullname as employeeid,MAX(pp.test_time) AS testtime,pp.upload_date, pm.model, pm.ser_num, pm.result
 												FROM pim_label pl
 												JOIN pim_ser_num pm ON pm.pim_label = pl.id
 												JOIN pim_ser_num_group pp ON pp.pim_ser_num = pm.id
 												JOIN pim_ser_num_group_data pa ON pa.pim_ser_num_group = pp.id
-												WHERE pm.ser_num = '".$productsn."'");
+												LEFT JOIN tester tr on pm.col13 = tr.id
+												WHERE pm.ser_num = '".$productsn."'
+												AND pm.islatest = 1");
+
 		$pimbasicInfoArray = $pimbasicInfoObject->result_array();
 		
 		$pimbasicInfo = array();
@@ -259,9 +264,13 @@ class Packing extends CW_Controller
 		if(count($pimbasicInfoArray) != 0 && $pimbasicInfoArray[0]["testtime"] != "")
 		{
 			$pimbasicInfo = $pimbasicInfoArray[0];
-			//取得极限值
-			$limitLine = substr($pimbasicInfo["col12"], strrpos($pimbasicInfo["col12"], ":")+1);
-			//取得所有值
+            $pimtestResult = $pimbasicInfo['result'];
+            if($pimtestResult) {
+                $pimtestResult = "合格";
+            } else {
+                $pimtestResult = "不合格";
+            }
+            //取得所有值
 			$pimdataObject = $this->db->query("SELECT pp.test_time,pa.value
 									  FROM pim_label pl
 									  JOIN pim_ser_num pm ON pm.pim_label = pl.id
@@ -285,42 +294,7 @@ class Packing extends CW_Controller
 					array_push($pimdataFormart[$value["test_time"]],$value["value"]);
 				}
 			}
-			//判断有几组数据大于极限值
-			$i = 0;
-			foreach($pimdataFormart as $value)
-			{
-				foreach($value as $val)
-				{
-					if($val >= $limitLine)
-					{
-						$i++;
-						break;
-					}
-				}
-			}
-			//判断是否合格，0代表不合格，1代表合格
-			if(count($pimdataFormart) == 1)
-			{
-				if($i > 0)
-				{
-					$pimtestResult = "不合格";
-				}
-				else
-				{
-					$pimtestResult = "合格";
-				}
-			}
-			else
-			{
-				if($i >= 2)
-				{
-					$pimtestResult = "不合格";
-				}
-				else
-				{
-					$pimtestResult = "合格";
-				}
-			}
+
 			//取得各组的最大值
 			$pimmaxdataObject = $this->db->query("SELECT pp.test_time,pp.upload_date,MAX(pa.value) AS value FROM pim_ser_num pm
 											JOIN pim_label pl ON pm.pim_label=pl.id
@@ -417,23 +391,29 @@ class Packing extends CW_Controller
                                           AND hpr.finalresult = 1
                                           ORDER BY hpr.id DESC");
         $hiPotInfoArr = $hiPotInfoObj->result_array();
+        $hiPotResult = array();
         if(count($hiPotInfoArr) == 0) {
-            $this->smarty->assign("hiPotResult", "未测试");
+            $hiPotResult["result"] = "";
         } else {
-            if($hiPotInfoArr[0]["result"]) {
-                $this->smarty->assign("hiPotResult", "合格");
+            $hiPotResult = $hiPotInfoArr[0];
+            if($hiPotResult["result"] == 1) {
+                $hiPotResult["result"] = "合格";
             } else {
-                $this->smarty->assign("hiPotResult", "不合格");
+                $hiPotResult["result"] = "不合格";
             }
         }
-		
+        $this->smarty->assign("hiPotResult", $hiPotResult);
+
 		//获取PIM基本信息
-		$pimbasicInfoObject = $this->db->query("SELECT pl.name,pm.col12,pm.col13,MAX(pp.test_time) AS testtime,pp.upload_date
+		$pimbasicInfoObject = $this->db->query("SELECT pl.name,pm.col12,tr.fullname as employeeid,MAX(pp.test_time) AS testtime,pp.upload_date, pm.model, pm.ser_num, pm.result
 												FROM pim_label pl
 												JOIN pim_ser_num pm ON pm.pim_label = pl.id
 												JOIN pim_ser_num_group pp ON pp.pim_ser_num = pm.id
 												JOIN pim_ser_num_group_data pa ON pa.pim_ser_num_group = pp.id
-												WHERE pm.ser_num = '".$productsn."'");
+												LEFT JOIN tester tr ON pm.col13 = tr.id
+												WHERE pm.ser_num = '".$productsn."'
+												AND pm.islatest = 1");
+
 		$pimbasicInfoArray = $pimbasicInfoObject->result_array();
 
 		$pimbasicInfo = array();
@@ -444,7 +424,7 @@ class Packing extends CW_Controller
 		if(count($pimbasicInfoArray) != 0 && $pimbasicInfoArray[0]["testtime"] != "")
 		{
 			$pimbasicInfo = $pimbasicInfoArray[0];
-			$pim_result = $this->checkPimResult($productsn);
+			$pim_result = $pimbasicInfo["result"];
 			//判断是否合格，0代表不合格，1代表合格
 			if($pim_result)
 			{
@@ -552,23 +532,27 @@ class Packing extends CW_Controller
                                           AND hpr.finalresult = 1
                                           ORDER BY hpr.id DESC");
         $hiPotInfoArr = $hiPotInfoObj->result_array();
+        $hiPotResult = array();
         if(count($hiPotInfoArr) == 0) {
-            $this->smarty->assign("hiPotResult", "未测试");
+            $hiPotResult["result"] = "";
         } else {
-            if($hiPotInfoArr[0]["result"]) {
-                $this->smarty->assign("hiPotResult", "合格");
+            $hiPotResult = $hiPotInfoArr[0];
+            if($hiPotResult["result"] == 1) {
+                $hiPotResult["result"] = "合格";
             } else {
-                $this->smarty->assign("hiPotResult", "不合格");
+                $hiPotResult["result"] = "不合格";
             }
         }
+        $this->smarty->assign("hiPotResult", $hiPotResult);
 
         //获取PIM基本信息
-		$pimbasicInfoObject = $this->db->query("SELECT pl.name,pm.col12,pm.col13,MAX(pp.test_time) AS testtime,pp.upload_date
+		$pimbasicInfoObject = $this->db->query("SELECT pl.name,pm.col12,tr.fullname as employeeid,MAX(pp.test_time) AS testtime,pp.upload_date, pm.model, pm.ser_num, pm.result
 												FROM pim_label pl
 												JOIN pim_ser_num pm ON pm.pim_label = pl.id
 												JOIN pim_ser_num_group pp ON pp.pim_ser_num = pm.id
 												JOIN pim_ser_num_group_data pa ON pa.pim_ser_num_group = pp.id
-												WHERE pm.ser_num = '".$productsn."'");
+												LEFT JOIN tester tr ON pm.col13 = tr.id
+												WHERE pm.id = '".$var."'");
 		$pimbasicInfoArray = $pimbasicInfoObject->result_array();
 		
 		$pimbasicInfo = array();
@@ -577,7 +561,7 @@ class Packing extends CW_Controller
 		if(count($pimbasicInfoArray) != 0)
 		{
 			$pimbasicInfo = $pimbasicInfoArray[0];
-			$pim_result = $this->checkPimResult($productsn);
+			$pim_result = $pimbasicInfo["result"];
 			//判断是否合格，0代表不合格，1代表合格
 			if($pim_result)
 			{

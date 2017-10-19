@@ -324,9 +324,9 @@
 					<td>{counter name="pimcounter"}</td>
 					<td>{$value['test_time']}</td>
 					<td>&nbsp;</td>
-					<td>&nbsp;</td>
-					<td>{$value['work_num']}</td>
 					<td>{$value['model']}</td>
+					<td>{$value['work_num']}</td>
+					<td>{$vnaResultArray[0]["productType"]|default:''}</td>
 					<td>
 						<a href="{site_url('/packing/detail_pim')}/{$value['id']}" target="_blank">{$value['ser_num']}</a>
 					</td>

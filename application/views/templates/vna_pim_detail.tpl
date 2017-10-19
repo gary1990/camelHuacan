@@ -139,7 +139,24 @@
 			{/foreach}
 			<hr class="hr_line">
 			<span class="testitem">耐压测试</span>
-			<div>{$hiPotResult}</div>
+			<div>
+				<table class="basictable">
+					<tr>
+						<th>测试时间</th>
+						<th>测试设备型号</th>
+						<th>测试设备序列号</th>
+						<th>测试员</th>
+						<th>测试结果</th>
+					</tr>
+					<tr>
+						<td>{$hiPotResult['testtime']|default:''}</td>
+						<td>{$hiPotResult['instrName']|default:''}</td>
+						<td>{$hiPotResult['instrSN']|default:''}</td>
+						<td>{$hiPotResult['testerid']|default:''}</td>
+						<td>{$hiPotResult['result']|default:'&nbsp;'}</td>
+					</tr>
+				</table>
+			</div>
 			<hr class="separate_line">
 			<span class="testitem">PIM测试</span>
 			<div>
@@ -153,9 +170,9 @@
 					</tr>
 					<tr>
 						<td>{$pimbasicInfo['testtime']|default:''}</td>
-						<td>{$pimbasicInfo['teststaionName']|default:''}</td>
-						<td>{$pimbasicInfo['teststationSn']|default:''}</td>
-						<td>{$pimbasicInfo['col13']|default:''}</td>
+						<td>{$pimbasicInfo['model']|default:''}</td>
+						<td>{$pimbasicInfo['ser_num']|default:''}</td>
+						<td>{$pimbasicInfo['employeeid']|default:''}</td>
 						<td>{$pimtestResult|default:'&nbsp;'}</td>
 					</tr>
 				</table>

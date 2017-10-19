@@ -228,7 +228,8 @@ class Vna_pim extends CW_Controller
 						 JOIN tester tr ON po.tester = tr.id
 						 JOIN producttype pe ON po.productType = pe.id
 						 ".$timeFromSql.$timeToSql.$testResultSql.$snSql.$teststationSql.$equipmentSql.$producttypeSql.$testerSql.$platenumSql.$labelnumSql."
-						 ORDER BY po.testTime DESC";						 
+						 AND po.tag1 = '1'
+						 ORDER BY po.testTime DESC";
 						 
 		$vnaResultObject = $this->db->query($vnaResultSql);
 		$vnaResultArray = $vnaResultObject->result_array();
@@ -237,19 +238,13 @@ class Vna_pim extends CW_Controller
 		$vnaResultSql = $vnaResultSql." LIMIT ".($offset-1)*$limit.",".$limit;
 		$vnaResultObject = $this->db->query($vnaResultSql);
 		$vnaResultArray = $vnaResultObject->result_array();
-		// $pimResultSql = "SELECT pm.id,pm.col12,MAX(pp.test_time) AS test_time,pp.upload_date,pm.model,pm.ser_num,pm.work_num,pl.name 
-		// 				  FROM pim_ser_num pm
-		// 				  JOIN pim_label pl ON pm.pim_label = pl.id 
-		// 				  JOIN pim_ser_num_group pp ON pp.pim_ser_num = pm.id
-		// 				  ".$pim_timeFromSql.$pim_timeToSql.$pim_snSql.$pim_labelnumSql."
-		// 				  GROUP BY pm.id
-		// 				  ORDER BY pp.test_time DESC
-		// 				";
-		$pimResultSql = "SELECT pm.id,pm.col12,pm.test_time AS test_time,pp.upload_date,pm.model,pm.ser_num,pm.work_num,pl.name 
+
+		$pimResultSql = "SELECT pm.id,pm.col12,pm.test_time AS test_time,pp.upload_date,pm.model,pm.ser_num,pm.work_num,pl.name, pm.result
 		 				  FROM pim_ser_num pm
 		 				  JOIN pim_label pl ON pm.pim_label = pl.id 
 		 				  JOIN pim_ser_num_group pp ON pp.pim_ser_num = pm.id
 		 				  ".$pim_timeFromSql.$pim_timeToSql.$pim_snSql.$pim_labelnumSql."
+		 				  AND pm.islatest = 1
 		 				  ORDER BY pm.test_time DESC
 		 				";
 		$pimResultObject = $this->db->query($pimResultSql);
@@ -260,53 +255,6 @@ class Vna_pim extends CW_Controller
 			$pimResultSql .= $pim_limitSql;
 			$pimResultObject = $this->db->query($pimResultSql);
 			$pimResultArray = $pimResultObject->result_array();
-		}
-		//处理pim结果
-		if(count($pimResultArray) != 0)
-		{
-			foreach($pimResultArray as $key=>$value)
-			{
-				//$pimtestResult;
-				//取得pim_ser_num的ser_num
-				$pim_ser_num = $value['ser_num'];
-				$pim_result = $this->checkPimResult($pim_ser_num);
-				//判断是否合格，0代表不合格，1代表合格
-				if($pim_result)
-				{
-					$pimtestResult = "1";
-				}
-				else
-				{
-					$pimtestResult = "0";
-				}
-				//将结果放入已查询出的数组最后
-				$pimResultArray[$key]["result"] = $pimtestResult;
-			}
-			//根据用户所选pim结果过滤条件，对pim结果数组处理
-			if($testResult == "0")
-			{
-				foreach ($pimResultArray as $key => $value) 
-				{
-					if($value["result"] == "1")
-					{
-						unset($pimResultArray[$key]);
-					}
-				}
-			}
-			else if($testResult == "1")
-			{
-				foreach ($pimResultArray as $key => $value) 
-				{
-					if($value["result"] == "0")
-					{
-						unset($pimResultArray[$key]);
-					}
-				}
-			}
-			else
-			{
-				
-			}
 		}
 		
 		//总数，供tpl页面中序列号计数用
@@ -409,7 +357,7 @@ class Vna_pim extends CW_Controller
 			{
 				$testResultSql = " AND 0 ";
 			}
-			//TODO
+
 			$pim_limitSql = " LIMIT ".($offset-1)*$limit.",".$limit;
 		}
 		else
@@ -475,6 +423,7 @@ class Vna_pim extends CW_Controller
 						 JOIN tester tr ON po.tester = tr.id
 						 JOIN producttype pe ON po.productType = pe.id
 						 ".$timeFromSql.$timeToSql.$testResultSql.$snSql.$teststationSql.$equipmentSql.$producttypeSql.$testerSql.$platenumSql.$labelnumSql."
+						 AND po.tag1 = '1'
 						 ORDER BY po.testTime DESC";
 		$vnaResultObject = $this->db->query($vnaResultSql);
 		$vnaResultArray = $vnaResultObject->result_array();
@@ -484,11 +433,12 @@ class Vna_pim extends CW_Controller
 		$vnaResultObject = $this->db->query($vnaResultSql);
 		$vnaResultArray = $vnaResultObject->result_array();
 		
-		$pimResultSql = "SELECT pm.id,pm.col12,pm.test_time AS test_time,pp.upload_date,pm.model,pm.ser_num,pm.work_num,pl.name 
+		$pimResultSql = "SELECT pm.id,pm.col12,pm.test_time AS test_time,pp.upload_date,pm.model,pm.ser_num,pm.work_num,pl.name,pm.result 
 						  FROM pim_ser_num pm 
 						  JOIN pim_label pl ON pm.pim_label = pl.id 
 						  JOIN pim_ser_num_group pp ON pp.pim_ser_num = pm.id
 						  ".$pim_timeFromSql.$pim_timeToSql.$pim_snSql.$pim_labelnumSql."
+						  AND pm.islatest = 1
 						  GROUP BY pm.id
 						  ORDER BY pp.test_time DESC
 						  ";
@@ -502,54 +452,7 @@ class Vna_pim extends CW_Controller
 			$pimResultObject = $this->db->query($pimResultSql);
 			$pimResultArray = $pimResultObject->result_array();
 		}
-		
-		//处理pim结果
-		if(count($pimResultArray) != 0)
-		{
-			foreach($pimResultArray as $key=>$value)
-			{
-				//$pimtestResult;
-				//取得pim_ser_num的ser_num
-				$pim_ser_num = $value['ser_num'];
-				$pim_result = $this->checkPimResult($pim_ser_num);
-				//判断是否合格，0代表不合格，1代表合格
-				if($pim_result)
-				{
-					$pimtestResult = "1";
-				}
-				else
-				{
-					$pimtestResult = "0";
-				}
-				//将结果放入已查询出的数组最后
-				$pimResultArray[$key]["result"] = $pimtestResult;
-			}
-			//根据用户所选pim结果过滤条件，对pim结果数组处理
-			if($testResult == "0")
-			{
-				foreach ($pimResultArray as $key => $value) 
-				{
-					if($value["result"] == "1")
-					{
-						unset($pimResultArray[$key]);
-					}
-				}
-			}
-			else if($testResult == "1")
-			{
-				foreach ($pimResultArray as $key => $value) 
-				{
-					if($value["result"] == "0")
-					{
-						unset($pimResultArray[$key]);
-					}
-				}
-			}
-			else
-			{
-				//do noting
-			}
-		}
+
 		/*
 		$this->smarty->assign("pimCount",count($pimResultArray)-($offset-1)*$limit);
 		$pimFenye = $this->pagefenye->getFenye($offset,count($pimResultArray),$limit,3);

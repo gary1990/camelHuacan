@@ -373,7 +373,7 @@ class Login extends CW_Controller
 		}
 		else if (PHP_OS == 'Darwin')
 		{
-			$uploadRoot = $this->filePath;
+            $uploadRoot = "/Users/garychen/Sites/camelHuacan/assets/uploadedSource";
 			$slash = "/";
 		}
 		else
@@ -743,12 +743,18 @@ class Login extends CW_Controller
 			$this->_returnUploadFailed("false01");
 			return;
 		}
-		if ($this->_checkTestUser($username, $password, 'PIM') === FALSE)
+
+        $testerId = "";
+        $checkUserRes = $this->_checkTestUser($username, $password, 'PIM');
+		if ($checkUserRes === FALSE)
 		{
 			//false02->错误的用户名密码
 		 	$this->_returnUploadFailed("false02");
 		 	return;
-		}
+		} else {
+            $testerId = $checkUserRes["testerId"];
+        }
+
 		//保存上传文件
 		$file_temp = $_FILES['file']['tmp_name'];
 		date_default_timezone_set('Asia/Shanghai');
@@ -850,8 +856,9 @@ class Login extends CW_Controller
 					$pattern = '/"([0-9.;\-]+)\r\n"/';
 					$replacement = '"${1}"';
 					$file_content = preg_replace($pattern, $replacement, $file_content);
-					//一个line表示一个组
+					//一个line表示一个组, 包含一组内所有的信息。
 					$lines = explode("\n", str_replace("\r", "", $file_content));
+
 					//删除lines中由最后一个回车换行造成的空元素
 					array_pop($lines);
 					$firstGroup = true;
@@ -861,10 +868,37 @@ class Login extends CW_Controller
 					{
 						$lineContentArray = explode(",", $line);
 						$lineContentArray = $this->_trimQuoterMark($lineContentArray);
-						//如果是第一个组,使用此组值来初始化pim_ser_num中的值					
-						if ($firstGroup)
+						//如果是第一个组,使用此组值来初始化pim_ser_num中的值
+                        //极限值
+                        $limitStr = str_replace(" ", "", substr($lineContentArray[13], strpos($lineContentArray[13], ":") + 1));
+						//默认合格, 有不合格数据更新为0
+                        $testResult = 1;
+                        if ($firstGroup)
 						{
-							$tmpSql = "INSERT INTO `pim_ser_num`(`work_num`, `test_time`, `model`, `ser_num`, `pim_label`, `col1`, `col2`, `col3`, `col4`, `col5`, `col6`, `col7`, `col8`, `col9`, `col10`, `col11`, `col12`, `col13`) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+                            //查询更新老的记录, 更新islatest字段为0(不是最新);
+                            $oldRecord = $this->db->query("SELECT `id` FROM `pim_ser_num` WHERE `ser_num` = '$ser_num'");
+                            if($oldRecord->num_rows() !== 0)
+                            {
+                                $oldRecordArr = $oldRecord->result_array();
+                                $oldIds = array();
+                                if(count($oldRecordArr) > 0) {
+                                    foreach ($oldRecordArr as $value)
+                                    {
+                                        array_push($oldIds, $value["id"]);
+                                    }
+                                    $ids = implode(',', $oldIds);
+                                    $updateRes = $this->db->query("UPDATE `pim_ser_num` SET `islatest` = 0 
+                                                                   WHERE `id`
+                                                                   IN (".$ids.")");
+                                    if($updateRes !== TRUE) {
+                                        $this->db->trans_rollback();
+                                        $this->_returnUploadFailed("更新老记录失败");
+                                        return;
+                                    }
+                                }
+                            }
+
+							$tmpSql = "INSERT INTO `pim_ser_num`(`work_num`, `test_time`, `model`, `ser_num`, `pim_label`, `col1`, `col2`, `col3`, `col4`, `col5`, `col6`, `col7`, `col8`, `col9`, `col10`, `col11`, `col12`, `col13`, `islatest`, `result`) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
 							$tmpRes = $this->db->query($tmpSql, array(
 								' ',
 								'0000-00-00 00:00:00',
@@ -883,7 +917,9 @@ class Login extends CW_Controller
 								$lineContentArray[9],
 								$lineContentArray[10],
 								$lineContentArray[13],
-								$lineContentArray[15]
+                                $testerId,
+                                1,
+                                1
 							));
 							if ($tmpRes === TRUE)
 							{
@@ -924,8 +960,16 @@ class Login extends CW_Controller
 							//取得pim_ser_num_group id
 							$pim_ser_num_group = $this->db->insert_id();
 							//插入pim_ser_num_group_data数据
+                            //第17个开始为测试信息数据
 							for ($i = 16; $i < count($lineContentArray); $i++)
 							{
+							    $testValue = preg_split("/;/", $lineContentArray[$i])[1];
+                                if($testResult === 1) {
+                                    if($testValue >= $limitStr) {
+                                        $testResult = 0;
+                                    }
+                                }
+
 								$tmpSql = "INSERT INTO `pim_ser_num_group_data`(`pim_ser_num_group`, `frequency`, `value`) VALUES ($pim_ser_num_group,?,?)";
 								$tmpRes = $this->db->query($tmpSql, explode(';', $lineContentArray[$i]));
 								if ($tmpRes === TRUE)
@@ -965,11 +1009,12 @@ class Login extends CW_Controller
 						}
 						$firstGroup = false;					
 					}
-					
-					//更新整条记录的测试时间
-					$updatePimSerNumTimeSql = "UPDATE `pim_ser_num` SET `test_time`=? WHERE id = ?";
+
+					//更新整条记录的测试时间和测试结果
+					$updatePimSerNumTimeSql = "UPDATE `pim_ser_num` SET `test_time`=?, `result`= ? WHERE id = ?";
 					$updatePimSerNumTimeRes = $this->db->query($updatePimSerNumTimeSql, array(
 						$groupTestTime,
+                        $testResult,
 						$pim_ser_num
 					));
 					if($updatePimSerNumTimeRes) {
@@ -1096,7 +1141,10 @@ class Login extends CW_Controller
 	{
 		$sn = $_POST["productsn"];
 		$producttype = $_POST['producttype'];
+        //PIM是否检查
 		$pimstate = $_POST["pimstate"];
+        //耐压是否检查
+        $hiPotstate = $_POST["hipotstate"];
 		$packer = $_POST["packer"];
 		$ordernum = $_POST["ordernum"];
 		$boxsn = $_POST["boxsn"];
@@ -1110,10 +1158,10 @@ class Login extends CW_Controller
         $lotCode = $_POST["lotCode"];
 
 		//验证用户所选产品型号，是否与当前sn产品的实际型号对应
-		$productTypeObject = $this->db->query("SELECT pe.name 
-						     				  FROM producttestinfo po 
-						  					  JOIN producttype pe 
-						  					  ON po.productType = pe.id 
+		$productTypeObject = $this->db->query("SELECT pe.name
+						     				  FROM producttestinfo po
+						  					  JOIN producttype pe
+						  					  ON po.productType = pe.id
 						  					  WHERE po.sn = '".$sn."'");
 		$productTypeArray = $productTypeObject->result_array();
 		if(count($productTypeArray) != 0)
@@ -1127,26 +1175,28 @@ class Login extends CW_Controller
 		}
 
 		//检查耐压测试是否合格
-        $hiPotInfoObj = $this->db->query("SELECT * 
+        if($hiPotstate == "hiPotcheck") {
+            $hiPotInfoObj = $this->db->query("SELECT * 
                                           FROM hi_pot_result hpr
                                           WHERE hpr.sn = '".$sn."'
                                           AND hpr.finalresult = 1
                                           ORDER BY hpr.id DESC");
-        $hiPotInfoArr = $hiPotInfoObj->result_array();
-        if(count($hiPotInfoArr) == 0) {
-            print("<result><info>hipotresultnull</info></result>");
-            return;
-        } else {
-            if($hiPotInfoArr[0]["result"]) {
-            } else {
-                print("<result><info>hipotresultfail</info></result>");
+            $hiPotInfoArr = $hiPotInfoObj->result_array();
+            if(count($hiPotInfoArr) == 0) {
+                print("<result><info>hipotresultnull</info></result>");
                 return;
+            } else {
+                if($hiPotInfoArr[0]["result"]) {
+                } else {
+                    print("<result><info>hipotresultfail</info></result>");
+                    return;
+                }
             }
         }
 
 		if($pimstate == "pimcheck")
 		{
-			$pimSn = $this->db->query("SELECT ser_num,test_time FROM pim_ser_num WHERE ser_num = '".$sn."'");
+			$pimSn = $this->db->query("SELECT ser_num,test_time,result FROM pim_ser_num WHERE ser_num = '".$sn."' AND islatest = 1");
 			if($pimSn->num_rows() == 0)
 			{
 				//取得vna当前tag位，如果有，取得vna当前tag1为1的tag位。如果无，标志位取0
@@ -1159,13 +1209,15 @@ class Login extends CW_Controller
 				{
 					$packTag = $vnatagObj->first_row()->tag;
 				}
-				$this->db->query("INSERT INTO packingresult (packingtime,boxsn,productsn,ordernum,packer,result,tag)
-							VALUES ('".$packingTime."','','".$sn."','".$ordernum."','".$packer."','UNTESTED','".$packTag."')");
+//				$this->db->query("INSERT INTO packingresult (packingtime,boxsn,productsn,ordernum,packer,result,tag)
+//							VALUES ('".$packingTime."','','".$sn."','".$ordernum."','".$packer."','UNTESTED','".$packTag."')");
 				print("<result><info>pimresultnull</info></result>");
+                return;
 			}
 			else
 			{
-				$pim_result = $this->checkPimResult($sn);
+				$pim_result = $pimSn->first_row()->result;
+
 				if($pim_result){//pim合格，检查vna测试是否存在
                     $vnaResultSql = "SELECT po.result,po.tag,po.testTime FROM producttestinfo po WHERE po.sn = '".$sn."' AND po.tag1 = '1'";
                     $vnaResultObject = $this->db->query($vnaResultSql);
@@ -1175,8 +1227,8 @@ class Login extends CW_Controller
 					{
 						//vna测试不存在
 						$packTag = '0';
-						$this->db->query("INSERT INTO packingresult (packingtime,boxsn,productsn,ordernum,packer,result,tag) 
-										VALUES ('".$packingTime."','','".$sn."','".$ordernum."','".$packer."','UNTESTED','".$packTag."')");
+//						$this->db->query("INSERT INTO packingresult (packingtime,boxsn,productsn,ordernum,packer,result,tag)
+//										VALUES ('".$packingTime."','','".$sn."','".$ordernum."','".$packer."','UNTESTED','".$packTag."')");
 						print("<result><info>vnaresultnull</info></result>");
 					}
 					else
@@ -1195,8 +1247,8 @@ class Login extends CW_Controller
 						}
 						else
 						{
-							$this->db->query("INSERT INTO packingresult (packingtime,boxsn,productsn,ordernum,packer,result,tag) 
-										VALUES ('".$packingTime."','','".$sn."','".$ordernum."','".$packer."','FAIL','".$packTag."')");
+//							$this->db->query("INSERT INTO packingresult (packingtime,boxsn,productsn,ordernum,packer,result,tag)
+//										VALUES ('".$packingTime."','','".$sn."','".$ordernum."','".$packer."','FAIL','".$packTag."')");
 							print("<result><info>vnaresultfail</info><data>$jsonDataResult</data><testtime>$vnaTestTime</testtime></result>");
 						}
 					}
@@ -1217,15 +1269,15 @@ class Login extends CW_Controller
                         $timeToClient = preg_replace("/[\s\\-:]/", "", $vnatagObj->first_row()->testTime);
 						$packTag = $vnatagObj->first_row()->tag;
 					}
-					$this->db->query("INSERT INTO packingresult (packingtime,boxsn,productsn,ordernum,packer,result,tag) 
-									VALUES ('".$packingTime."','','".$sn."','".$ordernum."','".$packer."','FAIL','".$packTag."')");
+//					$this->db->query("INSERT INTO packingresult (packingtime,boxsn,productsn,ordernum,packer,result,tag)
+//									VALUES ('".$packingTime."','','".$sn."','".$ordernum."','".$packer."','FAIL','".$packTag."')");
 					print("<result><info>pimresultfail</info><data>$jsonDataResult</data><testtime>$timeToClient</testtime></result>");
 				}
 			}
 		}
 		else if($pimstate == "pimuncheck")
 		{
-			$pimSn = $this->db->query("SELECT ser_num,test_time FROM pim_ser_num WHERE ser_num = '".$sn."'");
+			$pimSn = $this->db->query("SELECT ser_num,test_time FROM pim_ser_num WHERE ser_num = '".$sn."' AND islatest = 1");
 			if($pimSn->num_rows() != 0)
 			{
 				print("<result><info>pimexsit</info></result>");
@@ -1240,8 +1292,8 @@ class Login extends CW_Controller
 				{
 					//van测试结果为空
 					$packTag = '0';
-					$this->db->query("INSERT INTO packingresult (packingtime,boxsn,productsn,ordernum,packer,result,tag) 
-										VALUES ('".$packingTime."','','".$sn."','".$ordernum."','".$packer."','UNTESTED','".$packTag."')");
+//					$this->db->query("INSERT INTO packingresult (packingtime,boxsn,productsn,ordernum,packer,result,tag)
+//										VALUES ('".$packingTime."','','".$sn."','".$ordernum."','".$packer."','UNTESTED','".$packTag."')");
 					print("<result><info>vnaresultnull</info></result>");
 				}
 				else
@@ -1254,14 +1306,14 @@ class Login extends CW_Controller
                     $vnaTesttime = preg_replace("/[\s\\-:]/", "", $vnaResultArray[0]['testTime']);
 					if($vnaResult == 1)
 					{
-						$this->db->query("INSERT INTO packingresult (packingtime,boxsn,productsn,ordernum,packer,result,tag) 
-										VALUES ('".$packingTime."','".$boxsn."','".$sn."','".$ordernum."','".$packer."','PASS','".$packTag."')");
+//						$this->db->query("INSERT INTO packingresult (packingtime,boxsn,productsn,ordernum,packer,result,tag)
+//										VALUES ('".$packingTime."','".$boxsn."','".$sn."','".$ordernum."','".$packer."','PASS','".$packTag."')");
 						print("<result><info>pass</info><data>$jsonDataResult</data><testtime>$vnaTesttime</testtime></result>");
 					}
 					else
 					{
-						$this->db->query("INSERT INTO packingresult (packingtime,boxsn,productsn,ordernum,packer,result,tag) 
-										VALUES ('".$packingTime."','','".$sn."','".$ordernum."','".$packer."','FAIL','".$packTag."')");
+//						$this->db->query("INSERT INTO packingresult (packingtime,boxsn,productsn,ordernum,packer,result,tag)
+//										VALUES ('".$packingTime."','','".$sn."','".$ordernum."','".$packer."','FAIL','".$packTag."')");
 						print("<result><info>vnaresultfail</info><data>$jsonDataResult</data><testtime>$vnaTesttime</testtime></result>");
 					}
 				}
@@ -1276,8 +1328,8 @@ class Login extends CW_Controller
 			{
 				//van测试结果为空
 				$packTag = '0';
-				$this->db->query("INSERT INTO packingresult (packingtime,boxsn,productsn,ordernum,packer,result,tag) 
-										VALUES ('".$packingTime."','','".$sn."','".$ordernum."','".$packer."','UNTESTED','".$packTag."')");
+//				$this->db->query("INSERT INTO packingresult (packingtime,boxsn,productsn,ordernum,packer,result,tag)
+//										VALUES ('".$packingTime."','','".$sn."','".$ordernum."','".$packer."','UNTESTED','".$packTag."')");
 				print("<result><info>vnaresultnull</info></result>");
 			}
 			else
@@ -1291,19 +1343,95 @@ class Login extends CW_Controller
 
 				if($vnaResult == 1)
 				{
-					$this->db->query("INSERT INTO packingresult (packingtime,boxsn,productsn,ordernum,packer,result,tag) 
-										VALUES ('".$packingTime."','".$boxsn."','".$sn."','".$ordernum."','".$packer."','PASS','".$packTag."')");
+//					$this->db->query("INSERT INTO packingresult (packingtime,boxsn,productsn,ordernum,packer,result,tag)
+//										VALUES ('".$packingTime."','".$boxsn."','".$sn."','".$ordernum."','".$packer."','PASS','".$packTag."')");
 					print("<result><info>pass</info><data>$jsonDataResult</data><testtime>$vnaTestTime</testtime></result>");
 				}
 				else
 				{
-					$this->db->query("INSERT INTO packingresult (packingtime,boxsn,productsn,ordernum,packer,result,tag) 
-										VALUES ('".$packingTime."','','".$sn."','".$ordernum."','".$packer."','FAIL','".$packTag."')");
+//					$this->db->query("INSERT INTO packingresult (packingtime,boxsn,productsn,ordernum,packer,result,tag)
+//										VALUES ('".$packingTime."','','".$sn."','".$ordernum."','".$packer."','FAIL','".$packTag."')");
 					print("<result><info>vnaresultfail</info><data>$jsonDataResult</data><testtime>$vnaTestTime</testtime></result>");
 				}
 			}	
 		}
 	}
+
+	//上传耐压测试数据
+	public function voltagewithstandupload($employeeId = null, $testStationName = null, $instrName = null, $instrSN = null, $productSN = null, $testResult = null) {
+        //序列号
+        $sn = $productSN;
+        //工号
+        $employeeid = $employeeId;
+        $testerId = "";
+        $testTime = date("Y-m-d H:i:s");
+        $testData = null;
+        //0不合格, 1合格
+        $testResult = strtoupper($testResult) == "FAIL" ? 0 : 1;
+        //是否为最终测试结果
+        $finalresult = 1;
+        //查询测试员
+        $hiPottesterSql = $this->db->query("SELECT tr.id, tr.employeeid FROM tester tr
+                            JOIN tester_section ts on tr.tester_section = ts.id
+                            JOIN status ss on tr.status = ss.id
+                            WHERE tr.employeeid = '".$employeeid."'
+                            AND ts.name = 'HI_POT'                      
+							AND ss.statusname = 'active'");
+        $hiPottesterArr = $hiPottesterSql->result_array();
+        if(count($hiPottesterArr) == 0) {
+            $this->_returnUploadFailed("未找到指定测试员");
+            return;
+        } else {
+            $testerId = $hiPottesterArr[0]["id"];
+        }
+
+        //记录插入数据库
+        $this->db->trans_start();
+        //更新老的记录
+        $oldRecord = $this->db->query("SELECT id FROM hi_pot_result WHERE sn = ? AND finalresult = 1", $sn);
+        if($oldRecord->num_rows() !== 0)
+        {
+            $oldRecordArr = $oldRecord->result_array();
+            $oldIds = array();
+            if(count($oldRecordArr) > 0) {
+                foreach ($oldRecordArr as $value)
+                {
+                    array_push($oldIds, $value["id"]);
+                }
+                $ids = implode(',', $oldIds);
+                $updateRes = $this->db->query("UPDATE hi_pot_result SET finalresult = 0 WHERE id in (".$ids.")");
+                if($updateRes !== TRUE) {
+                    $this->db->trans_rollback();
+                    $this->_returnUploadFailed("更新记录失败");
+                    return;
+                }
+            }
+        }
+        $tmpRes = $this->db->query("INSERT INTO `hi_pot_result`
+                                    (`sn`, `result`, `finalresult`, `testerid`, `testtime`, `testdata`, `teststationname`, `instrName`, `instrSN`) 
+                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", array(
+                                        $sn,
+                                        $testResult,
+                                        $finalresult,
+                                        $testerId,
+                                        $testTime,
+                                        $testData,
+                                        $testStationName,
+                                        $instrName,
+                                        $instrSN
+                                    ));
+        if ($tmpRes === TRUE)
+        {
+            $this->_returnUploadOk();
+            return;
+        }
+        else
+        {
+            $this->db->trans_rollback();
+            $this->_returnUploadFailed("插入数据失败");
+            return;
+        }
+    }
 
 	//包装客户端取得产品型号的方法
 	public function getProducttype()
