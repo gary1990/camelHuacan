@@ -36,6 +36,7 @@ class CW_Controller extends CI_Controller
 		$itemArr = array(""=>"",
 						 "VNA测试记录"=>"VNA测试记录",
 						 "PIM测试记录"=>"PIM测试记录",
+                         "耐压测试记录"=>"耐压测试记录",
 						 "包装记录"=>"包装记录",
 						 "测试方案"=>"测试方案",
 						 "产品型号"=>"产品型号",

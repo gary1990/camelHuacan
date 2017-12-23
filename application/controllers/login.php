@@ -1234,8 +1234,10 @@ class Login extends CW_Controller
 					else
 					{
                         //查询PIM和VNA数据,生成json
-                        $jsonDataResult = $this->getVnaPimJsonData($sn, true, $factoryId, $jobNum, $materialName, $materialCode, $lotCode);
-						//vna测试存在
+                        //TODO 取消生成json数据
+                        //$jsonDataResult = $this->getVnaPimJsonData($sn, true, $factoryId, $jobNum, $materialName, $materialCode, $lotCode);
+                        $jsonDataResult = json_encode(new stdClass());
+                        //vna测试存在
 						$packTag = $vnaResultArray[0]['tag'];
 						$vnaResult = $vnaResultArray[0]['result'];
                         $vnaTestTime = preg_replace("/[\s\\-:]/", "", $vnaResultArray[0]['testTime']);
@@ -1255,8 +1257,9 @@ class Login extends CW_Controller
 				}else{//pim fail, get vna record tag
                     $timeToClient = "";
                     //查询PIM和VNA数据,生成json
-                    $jsonDataResult = $this->getVnaPimJsonData($sn, true, $factoryId, $jobNum, $materialName, $materialCode, $lotCode);
-					//取得vna当前tag位，如果有，取得vna当前tag1为1的tag位。如果无，标志位取0
+                    //$jsonDataResult = $this->getVnaPimJsonData($sn, true, $factoryId, $jobNum, $materialName, $materialCode, $lotCode);
+                    $jsonDataResult = json_encode(new stdClass());
+                    //取得vna当前tag位，如果有，取得vna当前tag1为1的tag位。如果无，标志位取0
 					$vnatagObj = $this->db->query("SELECT tag,testTime FROM producttestinfo po WHERE tag1 = '1' AND po.sn = '".$sn."'");
 					if($vnatagObj->num_rows() == 0)
 					{
@@ -1299,15 +1302,16 @@ class Login extends CW_Controller
 				else
 				{
                     //查询PIM和VNA数据,生成json
-                    $jsonDataResult = $this->getVnaPimJsonData($sn, false, $factoryId, $jobNum, $materialName, $materialCode, $lotCode);
-					//van结果不为空
+                    //$jsonDataResult = $this->getVnaPimJsonData($sn, false, $factoryId, $jobNum, $materialName, $materialCode, $lotCode);
+                    $jsonDataResult = json_encode(new stdClass());
+                    //van结果不为空
 					$packTag = $vnaResultArray[0]['tag'];
 					$vnaResult = $vnaResultArray[0]['result'];
                     $vnaTesttime = preg_replace("/[\s\\-:]/", "", $vnaResultArray[0]['testTime']);
 					if($vnaResult == 1)
 					{
-//						$this->db->query("INSERT INTO packingresult (packingtime,boxsn,productsn,ordernum,packer,result,tag)
-//										VALUES ('".$packingTime."','".$boxsn."','".$sn."','".$ordernum."','".$packer."','PASS','".$packTag."')");
+						$this->db->query("INSERT INTO packingresult (packingtime,boxsn,productsn,ordernum,packer,result,tag)
+										VALUES ('".$packingTime."','".$boxsn."','".$sn."','".$ordernum."','".$packer."','PASS','".$packTag."')");
 						print("<result><info>pass</info><data>$jsonDataResult</data><testtime>$vnaTesttime</testtime></result>");
 					}
 					else
@@ -1335,8 +1339,9 @@ class Login extends CW_Controller
 			else
 			{
                 //查询PIM和VNA数据,生成json
-                $jsonDataResult = $this->getVnaPimJsonData($sn, false, $factoryId, $jobNum, $materialName, $materialCode, $lotCode);
-				//van结果不为空
+                //$jsonDataResult = $this->getVnaPimJsonData($sn, false, $factoryId, $jobNum, $materialName, $materialCode, $lotCode);
+                $jsonDataResult = json_encode(new stdClass());
+                //van结果不为空
 				$packTag = $vnaResultArray[0]['tag'];
 				$vnaResult = $vnaResultArray[0]['result'];
                 $vnaTestTime = preg_replace("/[\s\\-:]/", "", $vnaResultArray[0]['testTime']);
@@ -1359,7 +1364,7 @@ class Login extends CW_Controller
 
 	//上传耐压测试数据
 	public function voltagewithstandupload($employeeId = null, $testStationName = null, $instrName = null, $instrSN = null, $productSN = null, $testResult = null) {
-        //序列号
+	    //序列号
         $sn = $productSN;
         //工号
         $employeeid = $employeeId;

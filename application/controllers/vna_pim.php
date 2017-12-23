@@ -14,6 +14,7 @@ class Vna_pim extends CW_Controller
 
 	private function _init()
 	{
+        ini_set("memory_limit",-1);
 		$hourList = array(''=>'');
 		for ($i = 0; $i <= 23; $i++)
 		{
@@ -87,6 +88,9 @@ class Vna_pim extends CW_Controller
 		$current_page = $this->input->post("current_page");
 		$current_action = $this->input->post("current_action");
 		$timeFrom1 = emptyToNull($this->input->post("timeFrom1"));
+
+        print_r("记录: ".$current_item."_第".$current_page."页_操作:".$current_action);
+
 		if ($timeFrom1 == null)
 		{
 			$timeFrom1 = date("Y-m-d");
@@ -279,10 +283,14 @@ class Vna_pim extends CW_Controller
 	}
 
 	public function pim($offset = 1, $limit = 30)
-	{
+    {
+        ini_set("memory_limit",-1);
 		$current_item = $this->input->post("current_item");
 		$current_page = $this->input->post("current_page");
 		$current_action = $this->input->post("current_action");
+
+        print_r("记录: ".$current_item."_第".$current_page."页_操作:".$current_action);
+
 		$timeFrom1 = emptyToNull($this->input->post("timeFrom1"));
 		if ($timeFrom1 == null)
 		{
@@ -486,10 +494,308 @@ class Vna_pim extends CW_Controller
 		$this->smarty->display("vna_pim.tpl");
 	}
 
+	public function searchRecords($offset = 1, $limit = 30) {
+        ini_set("memory_limit",-1);
+        $currentActionGet = isset($_GET["recordtype"]) ? $_GET["recordtype"] : "";
+
+        $current_item = $this->input->post("current_item");
+
+        $current_page = $this->input->post("current_page");
+        $current_action = $this->input->post("current_action");
+
+        if($currentActionGet == "VNA" || $current_item == "VNA") {
+            $current_item = "VNA";
+        } else if($currentActionGet == "PIM" || $current_item == "PIM") {
+            $current_item = "PIM";
+        } else {
+            $current_item = "HIGHPOT";
+        }
+
+        $timeFrom1 = emptyToNull($this->input->post("timeFrom1"));
+        if ($timeFrom1 == null)
+        {
+            $timeFrom1 = date("Y-m-d");
+        }
+        $timeFrom2 = emptyToNull($this->input->post("timeFrom2"));
+        if ($timeFrom2 == null)
+        {
+            $timeFrom2 = date("H")-1+1;
+        }
+        $timeFrom3 = emptyToNull($this->input->post("timeFrom3"));
+        if ($timeFrom3 == null)
+        {
+            $timeFrom3 = 0;
+        }
+        $timeFrom = $timeFrom1." ".$timeFrom2.":".$timeFrom3;
+        $timeTo1 = emptyToNull($this->input->post("timeTo1"));
+        if ($timeTo1 == null)
+        {
+            $timeTo1 = date("Y-m-d");
+        }
+        $timeTo2 = emptyToNull($this->input->post("timeTo2"));
+        if ($timeTo2 == null)
+        {
+            $timeTo2 = date("H")+1;
+        }
+        $timeTo3 = emptyToNull($this->input->post("timeTo3"));
+        if ($timeTo3 == null)
+        {
+            $timeTo3 = 0;
+        }
+        $timeTo = $timeTo1." ".$timeTo2.":".$timeTo3;
+        $testResult = emptyToNull($this->input->post('testResult'));
+        $sn = emptyToNull($this->input->post('sn'));
+        $teststation = emptyToNull($this->input->post('teststation'));
+        $equipment = emptyToNull($this->input->post('equipment'));
+        $labelnum = emptyToNull($this->input->post('labelnum'));
+        $producttype = emptyToNull($this->input->post('producttype'));
+        $ordernum = emptyToNull($this->input->post('ordernum'));
+        $tester = emptyToNull($this->input->post('tester'));
+        $platenum = emptyToNull($this->input->post('platenum'));
+
+        $timeFromSql=" AND po.testTime >= '".$timeFrom."'";
+        $timeToSql = " AND po.testTime <= '".$timeTo."'";
+        $testResultSql = "";
+        $snSql = "";
+        $teststationSql = "";
+        $equipmentSql = "";
+        $labelnumSql = "";
+        $producttypeSql = "";
+        $testerSql = "";
+        $platenumSql = "";
+
+        $pim_timeFromSql=" AND pm.test_time >= '".$timeFrom."'";
+        $pim_timeToSql = " AND pm.test_time <= '".$timeTo."'";
+        $pim_testResultSql = "";
+        $pim_snSql = "";
+        $pim_teststationSql = "";
+        $pim_labelnumSql = "";
+        $pim_producttypeSql = "";
+        $pim_ordernumSql = "";
+        $pim_testerSql = "";
+        $pim_limitSql = "";
+
+        //耐压测试
+        $pot_timeFromSql=" AND ht.testtime >= '".$timeFrom."'";
+        $pot_timeToSql = " AND ht.testtime <= '".$timeTo."'";
+        $potTestResultSql = "";
+        $potSnSql = "";
+
+        if($testResult != null)
+        {
+            if($testResult == 0 || $testResult == 1)
+            {
+                $testResultSql = " AND po.result = ".$testResult;
+                $pim_testResultSql = " AND pm.result = ".$testResult;
+                $potTestResultSql = " AND ht.result = ".$testResult;
+            }
+            else
+            {
+                $testResultSql = " AND 0 ";
+                $pim_testResultSql = " AND 0";
+                $potTestResultSql = " AND 0";
+            }
+        }
+
+        if($sn != null)
+        {
+            $start = strpos($sn, "+");
+            $end = strripos($sn, "+");
+            if(strlen($sn) == 1)
+            {
+                $snSql = " AND po.sn LIKE '%".$sn."%' ";
+                $pim_snSql = " AND pm.ser_num LIKE '%".$sn."%' ";
+                $potSnSql = " AND ht.sn LIKE '%".$sn."%' ";
+            }
+            else
+            {
+                if($start == 0 && $end == (strlen($sn)-1))
+                {
+                    $sn = substr($sn, 1,strlen($sn)-2);
+                    $snSql = " AND po.sn = '".$sn."' ";
+                    $pim_snSql = " AND pm.ser_num = '".$sn."' ";
+                    $potSnSql = " AND ht.sn = '".$sn."' ";
+                }
+                else
+                {
+                    $snSql = " AND po.sn LIKE '%".$sn."%' ";
+                    $pim_snSql = " AND pm.ser_num LIKE '%".$sn."%' ";
+                    $potSnSql = " AND ht.sn LIKE '%".$sn."%' ";
+                }
+            }
+
+        }
+        if($teststation != null)
+        {
+            $teststationSql = " AND po.testStation = '".$teststation."' ";
+        }
+        if($equipment != null)
+        {
+            $equipmentSnObj = $this->db->query("SELECT sn FROM equipment WHERE id = '".$equipment."'");
+            $equipmentSn = $equipmentSnObj->first_row()->sn;
+            $equipmentSql = " AND po.equipmentSn = '".$equipmentSn."' ";
+        }
+        if($producttype != null)
+        {
+            $producttypeSql = " AND po.productType = '".$producttype."' ";
+        }
+        if($tester != null)
+        {
+            $testerSql = " AND po.tester = '".$tester."' ";
+        }
+        if($platenum != null)
+        {
+            $platenumSql = " AND po.platenum LIKE '%".$platenum."%' ";
+        }
+        if($labelnum != null)
+        {
+            $labelnumSql = " AND po.workorder LIKE '%".$labelnum."%' ";
+            $pim_labelnumSql = " AND pl.name like '%".$labelnum."%' ";
+        }
+
+        $vnaResultSql = "SELECT po.result,po.id,po.testTime,po.equipmentSn,po.workorder,po.tag,po.tag1,tn.name AS testStation,tr.employeeid AS tester,pe.name AS productType,po.sn
+						 FROM producttestinfo po
+						 JOIN teststation tn ON po.testStation = tn.id
+						 JOIN tester tr ON po.tester = tr.id
+						 JOIN producttype pe ON po.productType = pe.id
+						 ".$timeFromSql.$timeToSql.$testResultSql.$snSql.$teststationSql.$equipmentSql.$producttypeSql.$testerSql.$platenumSql.$labelnumSql."
+						 AND po.tag1 = '1'
+						 ORDER BY po.testTime DESC";
+
+        $vnaResultObject = $this->db->query($vnaResultSql);
+        $vnaResultArray = $vnaResultObject->result_array();
+
+        $vnaPassCount = 0;
+        $vnaPassArray = [];
+        //未选择PASS或FAIL
+        if($testResultSql == "") {
+            $vnaPassArray = array_filter($vnaResultArray, function($v, $k) {
+                return $v["result"] == 1;
+            }, ARRAY_FILTER_USE_BOTH);
+            $vnaPassCount = count($vnaPassArray);
+        } else if($testResult == 0) {
+            $vnaPassCount = 0;
+        } else if($testResult == 1) {
+            $vnaPassCount = count($vnaResultArray);
+        }
+
+        if(count($vnaResultArray) > 0) {
+            $this->smarty->assign("vnaPassPercent", "总计: ". count($vnaResultArray).
+                ", 合格: ".$vnaPassCount.
+                ", 合格率: ".(round($vnaPassCount/count($vnaResultArray)*100, 2))."%");
+        }
+
+        $this->smarty->assign("vnaCount",count($vnaResultArray)-($offset-1)*$limit);
+        $vnaFenye = $this->pagefenye->getFenye($offset, count($vnaResultArray), $limit, 3);
+        $vnaResultSql = $vnaResultSql." LIMIT ".($offset-1)*$limit.",".$limit;
+        $vnaResultObject = $this->db->query($vnaResultSql);
+        $vnaResultArray = $vnaResultObject->result_array();
+
+
+
+        $pimResultSql = "SELECT pm.id,pm.col12,pm.test_time AS test_time,pp.upload_date,pm.model,pm.ser_num,pm.work_num,pl.name,pm.result
+						  FROM pim_ser_num pm
+						  JOIN pim_label pl ON pm.pim_label = pl.id
+						  JOIN pim_ser_num_group pp ON pp.pim_ser_num = pm.id
+						  ".$pim_timeFromSql.$pim_timeToSql.$pim_testResultSql.$pim_snSql.$pim_labelnumSql."
+						  AND pm.islatest = 1
+						  GROUP BY pm.id
+						  ORDER BY pp.test_time DESC
+						  ";
+
+        $pimResultObject = $this->db->query($pimResultSql);
+        $pimResultArray = $pimResultObject->result_array();
+
+        $pimPassCount = 0;
+        $pimPassArray = [];
+        //未选择PASS或FAIL
+        if($pim_testResultSql == "") {
+            $pimPassArray = array_filter($pimResultArray, function($v, $k) {
+                return $v["result"] == 1;
+            }, ARRAY_FILTER_USE_BOTH);
+            $pimPassCount = count($pimPassArray);
+        } else if($testResult == 0) {
+            $pimPassCount = 0;
+        } else if($testResult == 1) {
+            $pimPassCount = count($pimPassArray);
+        }
+
+        if(count($pimResultArray) > 0) {
+            $this->smarty->assign("pimPassPercent", "总计: ". count($pimResultArray).
+                ", 合格: ".$pimPassCount.
+                ", 合格率: ".(round($pimPassCount/count($pimResultArray)*100, 2))."%");
+        }
+
+        $this->smarty->assign("pimCount",count($pimResultArray)-($offset-1)*$limit);
+        $pimFenye = $this->pagefenye->getFenye($offset, count($pimResultArray), $limit, 3);
+        $pimResultSql = $pimResultSql." LIMIT ".($offset-1)*$limit.",".$limit;
+        $pimResultObject = $this->db->query($pimResultSql);
+        $pimResultArray = $pimResultObject->result_array();
+
+        $highPotSql = "SELECT ht.*, tr.employeeid
+                       FROM hi_pot_result ht
+                       JOIN tester tr on ht.testerid = tr.id
+                       ". $pot_timeFromSql.$pot_timeToSql. $potTestResultSql.$potSnSql."
+                      AND ht.finalresult = 1
+                      ORDER BY ht.testtime DESC";
+        $potResultObject = $this->db->query($highPotSql);
+        $potResultArray = $potResultObject->result_array();
+
+        $potPassCount = 0;
+        $potPassArray = [];
+        //未选择PASS或FAIL
+        if($potTestResultSql == "") {
+            $potPassArray = array_filter($potResultArray, function($v, $k) {
+                return $v["result"] == 1;
+            }, ARRAY_FILTER_USE_BOTH);
+            $potPassCount = count($potPassArray);
+        } else if($testResult == 0) {
+            $potPassCount = 0;
+        } else if($testResult == 1) {
+            $potPassCount = count($potResultArray);
+        }
+        if(count($potResultArray) > 0) {
+            $this->smarty->assign("potPassPercent", "总计: ". count($potResultArray).
+                ", 合格: ".$potPassCount.
+                ", 合格率: ".(round($potPassCount/count($potResultArray)*100, 2))."%");
+        }
+
+        $this->smarty->assign("potCount",count($potResultArray)-($offset-1)*$limit);
+        $potFenye = $this->pagefenye->getFenye($offset, count($potResultArray), $limit, 3);
+        $highPotSql = $highPotSql." LIMIT ".($offset-1)*$limit.",".$limit;
+        $potResultObject = $this->db->query($highPotSql);
+        $potResultArray = $potResultObject->result_array();
+
+        $this->smarty->assign("timeFrom1",$timeFrom1);
+        $this->smarty->assign("timeFrom2", $timeFrom2);
+        $this->smarty->assign("timeFrom3", $timeFrom3);
+        $this->smarty->assign("timeTo1",$timeTo1);
+        $this->smarty->assign("timeTo2", $timeTo2);
+        $this->smarty->assign("timeTo3", $timeTo3);
+
+        $this->smarty->assign("vnaResultArray",$vnaResultArray);
+        $this->smarty->assign("vnaFenye", $vnaFenye);
+        $this->smarty->assign("pimResultArray", $pimResultArray);
+        $this->smarty->assign("pimFenye", $pimFenye);
+        $this->smarty->assign("potResultArray", $potResultArray);
+        $this->smarty->assign("potFenye", $potFenye);
+
+        if($current_item == "VNA") {
+            $this->smarty->assign("item","VNA测试记录");
+            $this->smarty->assign("title","VNA测试记录");
+        } else if($current_item == "PIM") {
+            $this->smarty->assign("item","PIM测试记录");
+            $this->smarty->assign("title","PIM测试记录");
+        } else {
+            $this->smarty->assign("item","耐压测试记录");
+            $this->smarty->assign("title","耐压测试记录");
+        }
+
+        $this->smarty->display("vna_pim.tpl");
+    }
+
 	public function export_vna_excel()
 	{
-		set_time_limit(0);
-		
 		//获得选中产品测试项的id,name
 		$timeFrom1 = emptyToNull($this->input->post("timeFrom1"));
         if ($timeFrom1 == null)
@@ -534,7 +840,7 @@ class Vna_pim extends CW_Controller
         $ordernum = emptyToNull($this->input->post('ordernum'));
         $tester = emptyToNull($this->input->post('tester'));
         $platenum = emptyToNull($this->input->post('platenum'));
-        
+
         $timeFromSql=" AND po.testTime >= '".$timeFrom."'";
         $timeToSql = " AND po.testTime <= '".$timeTo."'";
         $testResultSql = "";
@@ -545,7 +851,7 @@ class Vna_pim extends CW_Controller
         $producttypeSql = "";
         $testerSql = "";
         $platenumSql = "";
-        
+
         if($testResult != null)
         {
             if($testResult == 0 || $testResult == 1)
@@ -561,7 +867,7 @@ class Vna_pim extends CW_Controller
         {
             $start = strpos($sn, "+");
             $end = strripos($sn, "+");
-            
+
             if(strlen($sn) == 1)
             {
                 $snSql = " AND po.sn LIKE '%".$sn."%' ";
@@ -578,7 +884,7 @@ class Vna_pim extends CW_Controller
                     $snSql = " AND po.sn LIKE '%".$sn."%' ";
                 }
             }
-            
+
         }
         if($equipment != null)
         {
@@ -606,21 +912,45 @@ class Vna_pim extends CW_Controller
         {
             $labelnumSql = " AND po.workorder LIKE '%".$labelnum."%' ";
         }
-        
-        $vnaResultSql = "SELECT po.result,po.testtime,po.sn,te.mark,te.value
+
+        $vnaResultSql = "SELECT po.id, po.result as vnaresult,po.testtime,po.sn, tn.name as stationname,
+                                tr.employeeid, tr.fullname,
+                                pe.name as producttypename
                          FROM producttestinfo po
                          JOIN teststation tn ON po.testStation = tn.id
                          JOIN tester tr ON po.tester = tr.id
                          JOIN producttype pe ON po.productType = pe.id
-                         JOIN testitemresult tt ON tt.productTestInfo = po.id
-                         JOIN testitemmarkvalue te ON te.testItemResult = tt.id
                          AND po.tag1 = 1
                          ".$timeFromSql.$timeToSql.$testResultSql.$snSql.$teststationSql.$equipmentSql.$producttypeSql.$testerSql.$platenumSql.$labelnumSql."
-                         ORDER BY po.sn";
-                                      
+                         ORDER BY po.testtime DESC";
+
         $vnaResultObject = $this->db->query($vnaResultSql);
         $vnaResultArray = $vnaResultObject->result_array();
-        
+
+        //获取查询到的产品序列号
+        $snArr = array_map(function($v) {
+            return $v["sn"];
+        }, $vnaResultArray);
+        $sns = join("','", $snArr);
+
+
+        //pim查询
+        $pimResultSql = "SELECT psm.test_time as testtime, psm.ser_num as sn, psm.result
+                         FROM pim_ser_num psm
+                         WHERE psm.islatest = 1
+                         AND psm.ser_num IN ('$sns')";
+        $pimResultObject = $this->db->query($pimResultSql);
+        $pimResultArray = $pimResultObject->result_array();
+
+        //耐压查询
+        $potResultSql = "SELECT hpr.result, hpr.sn, hpr.testtime
+                         FROM hi_pot_result hpr
+                         WHERE hpr.finalresult = 1
+                         AND hpr.sn IN ('$sns')";
+        $potResultObject = $this->db->query($potResultSql);
+        $potResultArray = $potResultObject->result_array();
+
+
         // Create new PHPExcel object
         $objPHPExcel = new PHPExcel();
         $styleArray = array(
@@ -631,60 +961,114 @@ class Vna_pim extends CW_Controller
             )
         );
         //write general info
-        $objPHPExcel->getActiveSheet()->setCellValueByColumnAndRow(0, 1, "序号");
-        $objPHPExcel->getActiveSheet()->setCellValueByColumnAndRow(1, 1, "序列号");
-        $objPHPExcel->getActiveSheet()->setCellValueByColumnAndRow(2, 1, "测试时间");
+        $sheet = $objPHPExcel->getActiveSheet();
+        $sheet->setCellValueByColumnAndRow(0, 1, "序号");
+        $sheet->setCellValueByColumnAndRow(1, 1, "序列号");
+        $sheet->setCellValueByColumnAndRow(2, 1, "VNA测试时间");
+        $sheet->setCellValueByColumnAndRow(3, 1, "产品型号");
+        $sheet->setCellValueByColumnAndRow(4, 1, "测试员");
+        $sheet->setCellValueByColumnAndRow(5, 1, "测试机台");
+        $sheet->setCellValueByColumnAndRow(6, 1, "VNA测试结果");
+        $sheet->setCellValueByColumnAndRow(7, 1, "PIM测试时间");
+        $sheet->setCellValueByColumnAndRow(8, 1, "PIM测试结果");
+        $sheet->setCellValueByColumnAndRow(9, 1, "耐压测试时间");
+        $sheet->setCellValueByColumnAndRow(10, 1, "耐压测试结果");
+
         $prevSn = "";
         //row start from 1
         $rowNum = 1;
         //column start from 0
         $colNum = 4;
-        foreach ($vnaResultArray as $key => $value) 
+
+        foreach ($vnaResultArray as $key => $value)
         {
-            if($prevSn != $value['sn'])
-            {
+            if($prevSn != $value['sn']) {
                 $rowNum++;
                 $prevSn = $value['sn'];
-                //set colNum to 4 is for the next same sn data
-                $colNum = 4;
-                $objPHPExcel->getActiveSheet()->setCellValueByColumnAndRow(0, $rowNum, $rowNum -1);
-                $objPHPExcel->getActiveSheet()->setCellValueByColumnAndRow(1, $rowNum, $value['sn']);
-                $objPHPExcel->getActiveSheet()->setCellValueByColumnAndRow(2, $rowNum, $value['testtime']);
-                $objPHPExcel->getActiveSheet()->setCellValueByColumnAndRow(3, $rowNum, $value['value']);
-                if($value['result'] == 0){//fail result
-                    $objPHPExcel->getActiveSheet()->getStyleByColumnAndRow(1, $rowNum)->applyFromArray($styleArray);
-                    $objPHPExcel->getActiveSheet()->getStyleByColumnAndRow(2, $rowNum)->applyFromArray($styleArray);
-                    $objPHPExcel->getActiveSheet()->getStyleByColumnAndRow(3, $rowNum)->applyFromArray($styleArray);
-                }
             }
-            else
-            {
-                $objPHPExcel->getActiveSheet()->setCellValueByColumnAndRow($colNum, $rowNum, $value['value']);
-                if($value['result'] == 0){//fail result
-                    $objPHPExcel->getActiveSheet()->getStyleByColumnAndRow($colNum, $rowNum)->applyFromArray($styleArray); 
+
+            $sheet->setCellValueByColumnAndRow(0, $rowNum, $rowNum -1);
+            $sheet->setCellValueByColumnAndRow(1, $rowNum, $value['sn']);
+            $sheet->setCellValueByColumnAndRow(2, $rowNum, $value['testtime']);
+            $sheet->setCellValueByColumnAndRow(3, $rowNum, $value['producttypename']);
+            $sheet->setCellValueByColumnAndRow(4, $rowNum, $value['employeeid']);
+            $sheet->setCellValueByColumnAndRow(5, $rowNum, $value['stationname']);
+
+            $vnaResult = "";
+            if($value['vnaresult'] == 0) {
+                $vnaResult = "不合格";
+            } else {
+                $vnaResult = "合格";
+            }
+
+            $pimTestTime = "";
+            $pimResult = "";
+            $pimInfoArrayKey = array_search($value['sn'], array_column($pimResultArray, 'sn'));
+
+            if(!($pimInfoArrayKey===FALSE)) {
+                $pimTestTime = $pimResultArray[$pimInfoArrayKey]["testtime"];
+                if($pimResultArray[$pimInfoArrayKey]["result"] == 0) {
+                    $pimResult = "不合格";
+                } else {
+                    $pimResult = "合格";
                 }
-                $colNum++;
+                unset($pimInfoArrayKey[$pimInfoArrayKey]);
+            }
+
+            $potTestTime = "";
+            $potResult = "";
+            $potInfoArrayKey = array_search($value['sn'], array_column($potResultArray, 'sn'));
+            if(!($potInfoArrayKey===FALSE)) {
+                $potTestTime = $potResultArray[$potInfoArrayKey]["testtime"];
+                if($potResultArray[$potInfoArrayKey]["result"] == 0) {
+                    $potResult = "不合格";
+                } else {
+                    $potResult = "合格";
+                }
+                unset($potResultArray[$potInfoArrayKey]);
+            }
+
+            $sheet->setCellValueByColumnAndRow(6, $rowNum, $vnaResult);
+            $sheet->setCellValueByColumnAndRow(7, $rowNum, $pimResult);
+            $sheet->setCellValueByColumnAndRow(8, $rowNum, $pimTestTime);
+            $sheet->setCellValueByColumnAndRow(9, $rowNum, $potResult);
+            $sheet->setCellValueByColumnAndRow(10, $rowNum, $potTestTime);
+
+            if($vnaResult == "不合格" || $pimResult == "不合格" || $potResult == "不合格"){//fail result
+                for ($i = 0; $i <= 10; $i++) {
+                    $sheet->getStyleByColumnAndRow($i, $rowNum)->applyFromArray($styleArray);
+                }
             }
         }
-        $objPHPExcel->getActiveSheet()->setTitle('Sheet1');
-        
+
+        $sheet->setTitle('Sheet1');
+
         header('Content-Type: application/vnd.ms-excel');
         header('Content-Disposition: attachment;filename="vnaresult.xls"');
         header('Cache-Control: max-age=0');
         // If you're serving to IE 9, then the following may be needed
         header('Cache-Control: max-age=1');
-        
+
         // If you're serving to IE over SSL, then the following may be needed
         header ('Expires: Mon, 26 Jul 1997 05:00:00 GMT'); // Date in the past
         header ('Last-Modified: '.gmdate('D, d M Y H:i:s').' GMT'); // always modified
         header ('Cache-Control: cache, must-revalidate'); // HTTP/1.1
         header ('Pragma: public'); // HTTP/1.0
-        
+
         $objWriter = PHPExcel_IOFactory::createWriter($objPHPExcel, 'Excel5');
         $objWriter->save('php://output');
         exit;
 	}
-    
+
+    private function searchForSn($sn, $array) {
+        foreach ($array as $key => $val) {
+            if ($val['sn'] === $sn) {
+                return $key;
+            }
+        }
+        return null;
+    }
+
     public function export_vna()
     {
         set_time_limit(0);

@@ -71,9 +71,10 @@
         </div>
 		<div class="itemTitle"><b>质量追溯</b></div>
 		<div>
-			<span><a href="{site_url()}/vna_pim/vna">1.VNA测试记录</a></span><br/>
-			<span><a href="{site_url()}/vna_pim/pim">2.PIM测试记录</a></span><br/>
-			<span><a href="{site_url()}/packing">3.包装记录</a></span><br/>
+			<span><a href="{site_url()}/vna_pim/searchRecords?recordtype=VNA">1.VNA测试记录</a></span><br/>
+			<span><a href="{site_url()}/vna_pim/searchRecords?recordtype=PIM">2.PIM测试记录</a></span><br/>
+			<span><a href="{site_url()}/vna_pim/searchRecords?recordtype=HIGHPOT">3.耐压测试记录</a></span><br/>
+			<span><a href="{site_url()}/packing">4.包装记录</a></span><br/>
 		</div>
 	</div>
 	<div class="span-11 subitem">

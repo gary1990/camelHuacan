@@ -83,6 +83,23 @@
 			$(".testerCn").hide();
 			$(".producttypeCn").hide();
 			$(".platenumCn").hide();
+			$(".passPercent").hide();
+			$("#pimPassPercent").show();
+			$(".export_vna_excel").hide();
+		} else if(current_item == "HIGHPOT") {
+			$(".teststationCn").hide();
+			$(".equipmentCn").hide();
+			$(".testerCn").hide();
+			$(".producttypeCn").hide();
+			$(".platenumCn").hide();
+			$(".orderNumCn").hide();
+			$(".passPercent").hide();
+			$("#potPassPercent").show();
+			$(".export_vna_excel").hide();
+		} else {
+			$(".passPercent").hide();
+			$("#vnaPassPercent").show();
+			$(".export_vna_excel").show();
 		}
 		$(".gqts_item").css("background-color","white");
 		$(".gqts_item").css("color","#DDDDDD");
@@ -111,6 +128,20 @@
 				$(".testerCn").hide();
 				$(".producttypeCn").hide();
 				$(".platenumCn").hide();
+				$(".orderNumCn").show();
+				$(".passPercent").hide();
+				$("#pimPassPercent").show();
+				$(".export_vna_excel").hide();
+			} else if(current_item == "HIGHPOT") {
+				$(".teststationCn").hide();
+				$(".equipmentCn").hide();
+				$(".testerCn").hide();
+				$(".producttypeCn").hide();
+				$(".platenumCn").hide();
+				$(".orderNumCn").hide();
+				$(".passPercent").hide();
+				$("#potPassPercent").show();
+				$(".export_vna_excel").hide();
 			}
 			else
 			{
@@ -119,6 +150,10 @@
 				$(".testerCn").show();
 				$(".producttypeCn").show();
 				$(".platenumCn").show();
+				$(".orderNumCn").show();
+				$(".passPercent").hide();
+				$("#vnaPassPercent").show();
+				$(".export_vna_excel").show();
 			}
 		});
 		$(".bt").click(function(e){
@@ -126,28 +161,23 @@
 			//$(".current_action").attr("value",current_action);
 			var current_item = $(".current_item").attr("value");
 			var baseurl = $("#base_url").val();
-			if(current_item == "VNA")
-			{
-				var url = baseurl+"index.php/vna_pim/vna";
-			}
-			else
-			{
-				var url = baseurl+"index.php/vna_pim/pim";
-			}
+			var url = baseurl+"index.php/vna_pim/searchRecords?recordtype="+ current_item;
+
 			$("#locForm").attr('action', url);
 		});
 		$(".page").click(function(e){
 			e.preventDefault();
 			var current_item = $(".current_item").attr("value");
 			var baseurl = $("#base_url").val();
-			if(current_item == "VNA")
-			{
-				var url = baseurl+"index.php/vna_pim/vna/"+ $(this).attr('href');
-			}
-			else
-			{
-				var url = baseurl+"index.php/vna_pim/pim/"+ $(this).attr('href');
-			}
+			var url = baseurl+"index.php/vna_pim/searchRecords/"+ $(this).attr('href');
+//			if(current_item == "VNA")
+//			{
+//				var url = baseurl+"index.php/vna_pim/vna/"+ $(this).attr('href');
+//			}
+//			else
+//			{
+//				var url = baseurl+"index.php/vna_pim/pim/"+ $(this).attr('href');
+//			}
 			$("#locForm").attr('action', url);
 			$("#locForm").submit();
 		});
@@ -185,6 +215,13 @@
 <!--{block name=body}-->
 <div class="prepend-1 span-64">
 	<div class="span-60">
+		<div>
+			<marquee style="color: green;">
+				<p class="passPercent" id="vnaPassPercent">{$vnaPassPercent|default:''}</p>
+				<p class="passPercent" id="pimPassPercent">{$pimPassPercent|default:''}</p>
+				<p class="passPercent" id="potPassPercent">{$potPassPercent|default:''}</p>
+			</marquee>
+		</div>
 		<form name="locForm" id="locForm" method="post" action="{site_url('vna_pim/vna')}">
 			<div class="condition">
 				<span class="span-5 spanStyle"> 时间: </span>
@@ -239,7 +276,7 @@
 				</div>
 			</div>
 			<div class="condition">
-				<div class="subCondition">
+				<div class="subCondition orderNumCn">
 					<div class="span-5 spanStyle">
 						工单号:
 					</div>
@@ -255,9 +292,9 @@
 				</div>
 				<div class="subCondition search">
 					<input class="bt" id="search" type="submit" value="查询"/>
-					<input class="export_vna" type="button" value="导出报告"/>
+					{*<input class="export_vna" type="button" value="导出报告"/>*}
 					<input class="export_vna_excel" type="button" value="导出Excel"/>
-					<input name="current_item" class="current_item" value="{if $title=='VNA测试记录'}VNA{else}PIM{/if}" type="hidden"/>
+					<input name="current_item" class="current_item" value="{if $title=='VNA测试记录'}VNA{elseif $title =="PIM测试记录"}PIM{else}HIGHPOT{/if}" type="hidden"/>
 					<input name="current_page" class="current_page" value="{$smarty.post.current_page|default:'1'}" type="hidden"/>
 				</div>
 			</div>
@@ -271,6 +308,9 @@
 	</div>
 	<div class="gqts_item" id="PIM">
 		PIM
+	</div>
+	<div class="gqts_item" id="HIGHPOT">
+		耐压测试
 	</div>
 	<hr/>
 	<div class="testResult VNA">
@@ -342,6 +382,38 @@
 			{/foreach}
 		</table>
 		{$pimFenye}
+	</div>
+	<div class="testResult HIGHPOT">
+		<table border="0">
+			<tr>
+				<th>序号</th><th>时间</th><th>测试站</th><th>测试设备</th><th>测试员</th><th>序列号</th><th>测试结果</th>
+			</tr>
+			{counter name="potcounter" start=$potCount+1 skip=-1 print=FALSE}
+			{foreach from=$potResultArray key=k item=value name=potforeach}
+				{if $smarty.foreach.potforeach.index is odd}
+					<tr style="background:white">
+						{else}
+					<tr style="background:#E5ECF9">
+				{/if}
+				<td>{counter name="potcounter"}</td>
+				<td>{$value['testtime']}</td>
+				<td>{$value['teststationname']}</td>
+				<td>{$value['instrName']}</td>
+				<td>{$value['employeeid']}</td>
+				<td>
+					<a href="{site_url('/packing/viewDetail')}/{$value['id']}?type=HIGHPOT" target="_blank">{$value['sn']}</a>
+				</td>
+				<td>
+					{if $value['result'] eq 1}
+						<span style="color:green;">合格</span>
+					{else}
+						<span style="color:red;">不合格</span>
+					{/if}
+				</td>
+				</tr>
+			{/foreach}
+		</table>
+		{$potFenye}
 	</div>
 </div>
 <!--{/block}-->

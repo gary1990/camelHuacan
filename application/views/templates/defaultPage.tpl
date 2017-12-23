@@ -27,10 +27,13 @@
 					switch(item)
 					{
 						case "VNA测试记录":
-							window.location.href = baseurl+"index.php/vna_pim/vna";
+							window.location.href = baseurl+"index.php/vna_pim/searchRecords?recordtype=VNA";
 							break;
 						case "PIM测试记录":
-							window.location.href = baseurl+"index.php/vna_pim/pim";
+							window.location.href = baseurl+"index.php/vna_pim/searchRecords?recordtype=PIM";
+							break;
+						case "耐压测试记录":
+							window.location.href = baseurl+"index.php/vna_pim/searchRecords?recordtype=highPot";
 							break;
 						case "包装记录":
 							window.location.href = baseurl+"index.php/packing";

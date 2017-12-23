@@ -586,7 +586,157 @@ class Packing extends CW_Controller
 
 		$this->smarty->display("vna_pim_detail.tpl");
 	}
-	
+
+	//查看详情
+	public function viewDetail($id){
+	    $idType = isset($_GET['type']) ? $_GET['type'] : "";
+        //取得生产厂家名称
+        $producterUrl = base_url()."resource/producter.txt";
+        $producter = @file_get_contents($producterUrl);
+        if($producter == FALSE)
+        {
+            $producter = "未找到配置文件producter.txt";
+        }
+        else
+        {
+            $producter = iconv("gbk", "utf-8", $producter);
+        }
+        $this->smarty->assign("producter",$producter);
+
+        //取得序列号
+        $productsn = "";
+        if($idType == "VNA") {
+
+        } else if ($idType == "PIM") {
+            $productSnObj = $this->db->query("SELECT pm.ser_num FROM pim_ser_num pm WHERE pm.id = '".$id."'");
+            $productSnArr = $productSnObj->result_array();
+            $productsn = $productSnArr[0]['ser_num'];
+        } else {
+            $productSnObj = $this->db->query("SELECT * 
+                                          FROM hi_pot_result hpr
+                                          WHERE hpr.id = '".$id."'");
+            $productSnArr = $productSnObj->result_array();
+            $productsn = $productSnArr[0]['sn'];
+        }
+
+        $this->smarty->assign("productsn",$productsn);
+
+        //获取vna基本信息
+        $basicInfoObject = $this->db->query("SELECT DISTINCT po.tag1,po.testTime,tn.name as teststationname,po.equipmentSn,pe.name,tr.fullname AS tester,po.result
+											FROM producttestinfo po 
+											JOIN testitemresult tt ON tt.productTestInfo = po.id 
+											JOIN testitemmarkvalue te ON te.testItemResult = tt.id
+											JOIN producttype pe ON po.productType = pe.id
+											JOIN tester tr ON po.tester = tr.id
+											JOIN teststation tn ON po.testStation = tn.id
+											AND po.sn = '".$productsn."'
+											AND po.tag1 in (1,3)");
+        $basicInfoArray = $basicInfoObject->result_array();
+        if(count($basicInfoArray) != 0)
+        {
+            $basicInfoArray = $basicInfoArray[0];
+        }
+        else
+        {
+            $basicInfoArray = array();
+        }
+        $this->smarty->assign("basicInfoArray",$basicInfoArray);
+
+        //获取vna测试详情
+        $testDetailObject = $this->db->query("SELECT tm.name,tt.testResult,tt.img,te.value,te.mark
+										FROM producttestinfo po 
+										JOIN testitemresult tt ON tt.productTestInfo = po.id
+										JOIN testitemmarkvalue te ON te.testItemResult = tt.id
+										JOIN testitem tm ON tt.testItem = tm.id
+										WHERE po.sn = '".$productsn."'
+										AND po.tag1 = '1'");
+        $testDetailArray = $testDetailObject->result_array();
+        //结果数组
+        $result = array();
+        //测试项数组
+        $testitem = array();
+        if(count($testDetailArray) != 0)
+        {
+            foreach($testDetailArray as $value)
+            {
+                if(!in_array($value['name'], $testitem))
+                {
+                    $arr = array($value['img'],array(array($value['mark'],$value['value'],$value['testResult'])));
+                    $result[$value['name']] = $arr;
+                    array_push($testitem,$value['name']);
+                }
+                else
+                {
+                    $arr = array($value['mark'],$value['value'],$value['testResult']);
+                    array_push($result[$value['name']][1],$arr);
+                }
+            }
+        }
+        $this->smarty->assign("result",$result);
+
+        //获取耐压测试基本信息
+        $hiPotInfoObj = $this->db->query("SELECT * 
+                                          FROM hi_pot_result hpr
+                                          WHERE hpr.sn = '".$productsn."'
+                                          AND hpr.finalresult = 1
+                                          ORDER BY hpr.id DESC");
+        $hiPotInfoArr = $hiPotInfoObj->result_array();
+        $hiPotResult = array();
+        if(count($hiPotInfoArr) == 0) {
+            $hiPotResult["result"] = "";
+        } else {
+            $hiPotResult = $hiPotInfoArr[0];
+            if($hiPotResult["result"] == 1) {
+                $hiPotResult["result"] = "合格";
+            } else {
+                $hiPotResult["result"] = "不合格";
+            }
+        }
+        $this->smarty->assign("hiPotResult", $hiPotResult);
+
+        //获取PIM基本信息
+        $pimbasicInfoObject = $this->db->query("SELECT pl.name,pm.col12,tr.fullname as employeeid,pp.test_time AS testtime,pp.upload_date, pm.model, pm.ser_num, pm.result
+												FROM pim_label pl
+												JOIN pim_ser_num pm ON pm.pim_label = pl.id
+												JOIN pim_ser_num_group pp ON pp.pim_ser_num = pm.id
+												JOIN pim_ser_num_group_data pa ON pa.pim_ser_num_group = pp.id
+												LEFT JOIN tester tr ON pm.col13 = tr.id
+												WHERE pm.ser_num = '".$productsn."'
+												AND pm.islatest = 1");
+        $pimbasicInfoArray = $pimbasicInfoObject->result_array();
+
+        $pimbasicInfo = array();
+        $pimtestResult = "";
+        $pimmaxdataArray = array();
+        if(count($pimbasicInfoArray) != 0)
+        {
+            $pimbasicInfo = $pimbasicInfoArray[0];
+            $pim_result = $pimbasicInfo["result"];
+            //判断是否合格，0代表不合格，1代表合格
+            if($pim_result)
+            {
+                $pimtestResult = "合格";
+            }
+            else
+            {
+                $pimtestResult = "不合格";
+            }
+            //取得各组的最大值
+            $pimmaxdataObject = $this->db->query("SELECT pp.test_time,pp.upload_date,MAX(pa.value) AS value FROM pim_ser_num pm
+											JOIN pim_label pl ON pm.pim_label=pl.id
+											JOIN pim_ser_num_group pp ON pp.pim_ser_num = pm.id
+											JOIN pim_ser_num_group_data pa ON pa.pim_ser_num_group = pp.id
+											AND pm.ser_num = '".$productsn."'
+											GROUP BY pp.test_time");
+            $pimmaxdataArray = $pimmaxdataObject->result_array();
+        }
+        $this->smarty->assign("pimbasicInfo",$pimbasicInfo);
+        $this->smarty->assign("pimtestResult",$pimtestResult);
+        $this->smarty->assign("pimmaxdataArray",$pimmaxdataArray);
+
+        $this->smarty->display("vna_pim_detail.tpl");
+    }
+
 	//导出报告
 	public function export()
 	{
