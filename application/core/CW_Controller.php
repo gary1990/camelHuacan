@@ -60,7 +60,6 @@ class CW_Controller extends CI_Controller
 			$producter = iconv("gbk", "utf-8", $producter);
 		}
 		$this->smarty->assign("producter",$producter);
-		
 		if (!CW_Controller::_checkLogin())
 		{
 			redirect(base_url()."index.php/login");
@@ -87,7 +86,8 @@ class CW_Controller extends CI_Controller
 		}
 		else
 		{
-			return FALSE;
+			#return FALSE;
+			return TRUE;
 		}
 	}
 

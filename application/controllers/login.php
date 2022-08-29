@@ -4,14 +4,16 @@ if (!defined('BASEPATH'))
 class Login extends CW_Controller
 {
 	//public $filePath = "C:\\projects\\PHP\\camelHuacan\\assets\\uploadedSource";
-    //TODO publish replace
-    private $filePath = "/Users/garychen/Sites/camelHuacan/assets/uploadedSource";
-    private $slash = "/";
-    //private $filePath = "D:\\camel\\camel\\assets\\uploadedSource";
-    //private $slash = "\\";
+    //private $filePath = "/Users/garychen/Sites/camel/assets/uploadedSource";
+    //private $slash = "/";
+    private $filePath = "D:\\camel\\camel\\assets\\uploadedSource";
+    private $slash = "\\";
 
     private $vnaClientName = "Kamel VNA Application for TS - HuaC";
-    private $vnaClientVersion = "V2.2.0";
+		private $vnaClientVersion = "V2.2.0";
+		private $freqThreshold = 1000;
+		private $freqTag900 = 2;
+		private $freqTag1800 = 3;
 
 	public function __construct()
 	{
@@ -371,7 +373,7 @@ class Login extends CW_Controller
 		}
 		else if (PHP_OS == 'Darwin')
 		{
-			$uploadRoot = $this->filePath;
+			$uploadRoot = "/Library/WebServer/Documents/aptana/xiong/assets/uploadedSource";
 			$slash = "/";
 		}
 		else
@@ -391,7 +393,6 @@ class Login extends CW_Controller
 			date_default_timezone_set('Asia/Shanghai');
 			$dateStamp = date("Y_m_d");
 			$dateStampFolder = $uploadRoot.$slash.$dateStamp;
-			//$this->_returnUploadFailed($dateStampFolder);
 			if (file_exists($dateStampFolder) && is_dir($dateStampFolder))
 			{
 				//do nothing
@@ -723,6 +724,26 @@ class Login extends CW_Controller
 		}
 	}
 
+	public function testCase() {
+		if (PHP_OS == 'WINNT')
+		{
+			$uploadRoot = $this->filePath."\\pim";
+			$slash = "\\";
+			echo $uploadRoot = $this->filePath."\\pim";
+		}
+		else if (PHP_OS == 'Darwin')
+		{
+			$uploadRoot = "/Users/garychen/Sites/camel/assets/uploadedSource/pim";
+			$slash = "/";
+		}
+		else
+		{
+			//false01->错误的服务器操作系统
+			$this->_returnUploadFailed("false01");
+			return;
+		}
+	}
+
 	public function uploadPimFile($username = null, $password = null, $ordernum = null)
 	{
 		if (PHP_OS == 'WINNT')
@@ -732,7 +753,7 @@ class Login extends CW_Controller
 		}
 		else if (PHP_OS == 'Darwin')
 		{
-			$uploadRoot = "/Users/garychen/Sites/camelHuacan/assets/uploadedSource/pim";
+			$uploadRoot = "/Users/garychen/Sites/camel/assets/uploadedSource/pim";
 			$slash = "/";
 		}
 		else
@@ -758,7 +779,7 @@ class Login extends CW_Controller
 		}
 		else
 		{
-			if (mkdir($dateStampFolder))
+			if (mkdir($dateStampFolder, 0777))
 			{
 			}
 			else
@@ -862,7 +883,19 @@ class Login extends CW_Controller
 						//如果是第一个组,使用此组值来初始化pim_ser_num中的值					
 						if ($firstGroup)
 						{
-							$tmpSql = "INSERT INTO `pim_ser_num`(`work_num`, `test_time`, `model`, `ser_num`, `pim_label`, `col1`, `col2`, `col3`, `col4`, `col5`, `col6`, `col7`, `col8`, `col9`, `col10`, `col11`, `col12`, `col13`) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+							$freqStr = $lineContentArray[0];
+							$freqStr = substr($freqStr, strpos($freqStr, ' '), strrpos($freqStr, ' ') - 2);
+							$freqVal = (float)$freqStr;
+							$freqTag = 0;
+							//$freqVal < 1000, means pim test freq in range 900, > 100 means range of 1800
+							if($freqVal < $this->freqThreshold) {
+								$freqTag = $this->freqTag900;	
+							} else if($freqVal > $this->freqThreshold) {
+								$freqTag = $this->freqTag1800;	
+							} else {
+								$this->_returnUploadFailed("cannot judge which pim group current test belongs to");
+							}
+							$tmpSql = "INSERT INTO `pim_ser_num`(`work_num`, `test_time`, `model`, `ser_num`, `pim_label`, `col1`, `col2`, `col3`, `col4`, `col5`, `col6`, `col7`, `col8`, `col9`, `col10`, `col11`, `col12`, `col13`, `freq`) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
 							$tmpRes = $this->db->query($tmpSql, array(
 								' ',
 								'0000-00-00 00:00:00',
@@ -881,7 +914,8 @@ class Login extends CW_Controller
 								$lineContentArray[9],
 								$lineContentArray[10],
 								$lineContentArray[13],
-								$lineContentArray[15]
+								$lineContentArray[15],
+								$freqTag
 							));
 							if ($tmpRes === TRUE)
 							{
@@ -1036,7 +1070,9 @@ class Login extends CW_Controller
 					{
 						if (is_dir($dirName.$slash.$item))
 						{
+							//TODO deploy need modify, not sure will work on PHP5
 							delDirAndFile($dirName.$slash.$item);
+							//$this->delDirAndFile($dirName.$slash.$item);
 						}
 						else
 						{
@@ -1093,6 +1129,10 @@ class Login extends CW_Controller
 	public function packingProductSnCheck()
 	{
 		$sn = $_POST["productsn"];
+		$pattern = '/(\\\|\\/)/i';
+		$sn = preg_replace($pattern, "-", $sn);
+		$snPIM = preg_replace($pattern, "-", $sn);
+		
 		$producttype = $_POST['producttype'];
 		$pimstate = $_POST["pimstate"];
 		$packer = $_POST["packer"];
@@ -1122,11 +1162,14 @@ class Login extends CW_Controller
 				print("<result><info>$productType</info></result>");
 				return;
 			}
+		} else {
+			print("<result><info>producttypenull</info></result>");
+			return;	
 		}
-
+			
 		if($pimstate == "pimcheck")
 		{
-			$pimSn = $this->db->query("SELECT ser_num,test_time FROM pim_ser_num WHERE ser_num = '".$sn."'");
+			$pimSn = $this->db->query("SELECT ser_num,test_time FROM pim_ser_num WHERE ser_num = '".$snPIM."'");
 			if($pimSn->num_rows() == 0)
 			{
 				//取得vna当前tag位，如果有，取得vna当前tag1为1的tag位。如果无，标志位取0
@@ -1145,7 +1188,9 @@ class Login extends CW_Controller
 			}
 			else
 			{
-				$pim_result = $this->checkPimResult($sn);
+				$pim_result900 = $this->checkPimResult($snPIM, $this->freqTag900);
+				$pim_result1800 = $this->checkPimResult($snPIM, $this->freqTag1800);
+				$pim_result = $pim_result900 && $pim_result1800;
 				if($pim_result){//pim合格，检查vna测试是否存在
                     $vnaResultSql = "SELECT po.result,po.tag,po.testTime FROM producttestinfo po WHERE po.sn = '".$sn."' AND po.tag1 = '1'";
                     $vnaResultObject = $this->db->query($vnaResultSql);
@@ -1199,13 +1244,27 @@ class Login extends CW_Controller
 					}
 					$this->db->query("INSERT INTO packingresult (packingtime,boxsn,productsn,ordernum,packer,result,tag) 
 									VALUES ('".$packingTime."','','".$sn."','".$ordernum."','".$packer."','FAIL','".$packTag."')");
-					print("<result><info>pimresultfail</info><data>$jsonDataResult</data><testtime>$timeToClient</testtime></result>");
+					if($pim_result900 === null) {
+						print("<result><info>pimresult900null</info><data>$jsonDataResult</data><testtime>$timeToClient</testtime></result>");
+					} else {
+						if($pim_result1800 === null) {
+							print("<result><info>pimresult1800null</info><data>$jsonDataResult</data><testtime>$timeToClient</testtime></result>");
+						} else{
+							if(!$pim_result900) {
+								print("<result><info>pimresult900fail</info><data>$jsonDataResult</data><testtime>$timeToClient</testtime></result>");
+							} else {
+								if(!$pim_result1800) {
+									print("<result><info>pimresult1800fail</info><data>$jsonDataResult</data><testtime>$timeToClient</testtime></result>");
+								}
+							}
+						}
+					}
 				}
 			}
 		}
 		else if($pimstate == "pimuncheck")
 		{
-			$pimSn = $this->db->query("SELECT ser_num,test_time FROM pim_ser_num WHERE ser_num = '".$sn."'");
+			$pimSn = $this->db->query("SELECT ser_num,test_time FROM pim_ser_num WHERE ser_num = '".$snPIM."'");
 			if($pimSn->num_rows() != 0)
 			{
 				print("<result><info>pimexsit</info></result>");
@@ -1315,6 +1374,8 @@ class Login extends CW_Controller
 	public function vnaSnExistCheck($sn = null)
 	{
 		$sn = urldecode($sn);
+		$pattern = '/(\\\|\\/)/i';
+		$sn = preg_replace($pattern, "-", $sn);
 		$snCountObject = $this->db->query("SELECT sn FROM producttestinfo a WHERE a.sn = '".$sn."'");
 		if($snCountObject->num_rows() != 0)
 		{
@@ -1379,7 +1440,7 @@ class Login extends CW_Controller
 			//uut_code 物料编码
 			$jsonResult->uut_info->uut_code = $uut_code;
 			//serial_number 物料条码
-			$jsonResult->uut_info->serial_number = trim($sn);
+			$jsonResult->uut_info->serial_number = str_replace("\\", "", str_replace(" ", "", $sn));
 			//supplier
 			$jsonResult->uut_info->supplier = "";
 			//date_code
@@ -1432,10 +1493,7 @@ class Login extends CW_Controller
 
 
 				$testItemPath = $this->filePath.$this->slash.(substr($value["img"], 0, strrpos($value["img"], "\\"))).$this->slash;
-				//TODO 暂时替换,发布去除
-                //$testItemPath = str_replace("\\", $this->slash, $testItemPath);
-
-                $itemObj = new stClass();
+                $itemObj = new stdClass();
                 $itemObj->id = $value["testItemID"];
                 $itemObj->item_name = $testItemname;
                 $itemObj->start_time = $value["testTime"];
@@ -1450,9 +1508,8 @@ class Login extends CW_Controller
 
                 $itemObj->sub_test_item_list = array();
 
-                //$itemFiles = glob($testItemPath."TraceData*.csv");
-                //TODO 华灿不能用下面
-                //$itemFiles = glob($testItemPath."TraceData-".$testItemname."*.csv");
+                $itemFiles = glob($testItemPath."TraceData*.csv");
+				//$itemFiles = glob($testItemPath."TraceData-".$testItemname."*.csv");
 
                 //print_r($testItemPath);
                 //return;
@@ -1517,6 +1574,8 @@ class Login extends CW_Controller
 			}
 
 			//PIM数据
+			$pattern = '/(\\\|\\/)/i';
+			$snPIM = preg_replace($pattern, "-", $sn);
             if($needPim) {
                 $pimGroupInfoSql = "SELECT a.group_id, a.test_time, substring( a.col12, 12 ) as limit_line, max( a.value ) AS maxval, max( a.value ) > substring( a.col12, 12 ) AS result
 								FROM (
@@ -1524,7 +1583,7 @@ class Login extends CW_Controller
 									FROM pim_ser_num pm
 									JOIN pim_ser_num_group pp ON pp.pim_ser_num = pm.id
 									JOIN pim_ser_num_group_data pa ON pa.pim_ser_num_group = pp.id
-									WHERE pm.ser_num = '".$sn."'
+									WHERE pm.ser_num = '".$snPIM."'
 								)a
 								GROUP BY a.test_time
 								ORDER BY a.test_time DESC";
@@ -1696,7 +1755,7 @@ class Login extends CW_Controller
     }
 
 	//cheack pim result
-	protected function checkPimResult($pim_ser_num)
+	protected function checkPimResult($pim_ser_num, $pimFreq = 2)
 	{
 		$perPimResultSql = "SELECT a.test_time, max( a.value ) AS maxval, max( a.value ) > substring( a.col12, 12 ) AS result
 								FROM (
@@ -1705,21 +1764,24 @@ class Login extends CW_Controller
 									JOIN pim_ser_num_group pp ON pp.pim_ser_num = pm.id
 									JOIN pim_ser_num_group_data pa ON pa.pim_ser_num_group = pp.id
 									WHERE pm.ser_num = '".$pim_ser_num."'
+									AND pm.freq = ".$pimFreq."
 								)a
 								GROUP BY a.test_time
 								ORDER BY a.test_time DESC";
 		$perPimResult = $this->db->query($perPimResultSql);
 		$perPimResultArray = $perPimResult->result_array();
 		//pim结果, 默认不合格
-		$pim_result = false;
+		$pim_result = null;
 		//pim count == 1,只有一组
 		if(count($perPimResultArray) == 1){
 			//result == 0, Pass
 			if($perPimResultArray[0]['result'] == 0){
 				$pim_result = true;
+			} else {
+				$pim_result = false;
 			}
 		}
-		else//pim count > 1
+		else if(count($perPimResultArray) > 1)//pim count > 1
 		{
 			//check if first test result is pass, 0 is pass, 1 is fail
 			if($perPimResultArray[count($perPimResultArray)-1]['result'] != 0)
@@ -1753,11 +1815,16 @@ class Login extends CW_Controller
 						break;
 					}
 				}
+				//if has pim record and not pass, then must be fail
+				if($pim_result === null) {
+					$pim_result = false;
+				}
 			}
 			else//first time test result is pass
 			{
 				$pim_result = true;
 			}
+		} else {
 		}
 		return $pim_result;
 	}
